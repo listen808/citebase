@@ -155,6 +155,8 @@ const (
 	MsgAudioReadFailed             = "audio_read_failed"
 	// 系统设置开关拒绝（搜索组）
 	MsgFulltextSearchDisabled = "fulltext_search_disabled"
+	// 向量重建的异步受理（数据字段里的中文迁到键：两个 handler 发同一句）
+	MsgVectorReindexStarted = "vector_reindex_started"
 	// 封套级兜底（internal/response 的共享 sentinel 与 500 那一档）
 	MsgSignedOutOrTokenInvalid = "signed_out_or_token_invalid"
 	MsgResourceNotFound        = "resource_not_found"
@@ -305,4 +307,5 @@ var zhMessages = map[string]string{
 	MsgRequestParameterError:     "请求参数错误",
 	MsgInternalError:             "服务器内部错误",
 	MsgFulltextSearchDisabled:    "全文搜索未开启",
+	MsgVectorReindexStarted:      "向量索引重建已启动，请稍后查看 /ai/vector/stats",
 }

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞（请勿公开提交）
+    url: https://github.com/listen808/citebase/blob/main/SECURITY.md
+    about: 按 SECURITY.md 的渠道私密报告，不要在 issue 里贴可利用细节
+  - name: 部署与配置问题
+    url: https://github.com/listen808/citebase/blob/main/docs/release/launch-checklist.md
+    about: 上线检查清单：环境变量、反向代理、备份与回滚

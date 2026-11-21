@@ -80,7 +80,7 @@
 | `AppleRadius['Npx']` 使用点 | 15 | 同上 `radiusPixelKeys` |
 | 像素键注册表定义 | space 31 / radius 20 | 同上 |
 | 后端直出中文（未迁键） | 0 | `serverMessageUnmigratedBaseline` |
-| 中文写进数据字段 | 42（只许降） | `serverMessageFieldBaseline` |
+| 中文写进数据字段 | 43（只许降） | `serverMessageFieldBaseline` |
 | 裸 `go func` | 递减 | `goroutine_guard_test.go` |
 | API 泄漏原文（`Fail` 残留） | 递减 | `internal/api/error_leak_test.go` |
 

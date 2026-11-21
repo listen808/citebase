@@ -50,6 +50,20 @@ func ErrorKeyDetail(c *gin.Context, httpCode int, key, detail string) {
 // 保留不带键的那些：它们还要接收服务端临时拼出来的句子（含内部细节的已经由
 // internal/api/error_leak_test.go 清点），迁移是逐批做的，不能一次砍断。
 
+// SuccessKey 是带 message_key 的成功出口。
+//
+// 为什么需要它：有些成功响应会回一句"用户看得见的话"（例如"向量索引重建已启动"），
+// 但 Success / SuccessWithMsg 只发中文 message、不带键 —— 英文界面读到的还是中文。
+// data 照旧原样下发；这句"受理成功"的话由 key 决定，前端按界面语言替换。
+func SuccessKey(c *gin.Context, data interface{}, key string) {
+	c.JSON(http.StatusOK, Response{
+		Code:       0,
+		Message:    Text(key),
+		MessageKey: key,
+		Data:       data,
+	})
+}
+
 // BadRequestKey returns a 400 error with a message key
 func BadRequestKey(c *gin.Context, key string) { ErrorKey(c, http.StatusBadRequest, key) }
 

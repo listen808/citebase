@@ -148,9 +148,7 @@ func (api *ChatAPI) ReindexVectors(c *gin.Context) {
 		}
 	}()
 
-	response.Success(c, gin.H{
-		"message": "向量索引重建已启动，请稍后查看 /ai/vector/stats",
-	})
+	response.SuccessKey(c, nil, response.MsgVectorReindexStarted)
 }
 
 func (api *ChatAPI) ReindexSpaceVectors(c *gin.Context) {
@@ -292,7 +290,7 @@ func (api *ChatAPI) reindexAllInternal(c *gin.Context) {
 		}
 	}()
 
-	response.Success(c, gin.H{"message": "向量索引重建已启动，请稍后查看 /ai/vector/stats"})
+	response.SuccessKey(c, nil, response.MsgVectorReindexStarted)
 }
 
 func (api *ChatAPI) reindexSpaceInternal(c *gin.Context, spaceID int) {

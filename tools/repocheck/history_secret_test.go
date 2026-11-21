@@ -40,7 +40,11 @@ var historySkipPathspecs = []string{
 
 func TestNoCredentialsInMasterHistory(t *testing.T) {
 	root := filepath.Join("..", "..")
-	args := append([]string{"log", "-p", "-U0", "--no-color", "master", "--", "."}, historySkipPathspecs...)
+	// 分支名不写死：仓库已从 master 改名 main，写死 master 会让 git 直接退出 128，
+	// 测试红的原因却不是"有凭据"，而是"找不到分支"——门禁自己坏了。用 HEAD 走当前分支历史。
+	// --full-history：不带它时，只改了被排除路径（docs/、*_test.go）的提交会被路径简化整段省略，
+	// 于是 log 里的 commit 头比 rev-list 少一个，范围判据会误报。
+	args := append([]string{"log", "-p", "-U0", "--no-color", "--full-history", "HEAD", "--", "."}, historySkipPathspecs...)
 	cmd := exec.Command("git", args...)
 	cmd.Dir = root
 	out, err := cmd.Output()
@@ -54,8 +58,24 @@ func TestNoCredentialsInMasterHistory(t *testing.T) {
 			count++
 		}
 	}
-	if count < 150 {
-		t.Fatalf("只数到 %d 个提交（master 上应有 175 个）—— 范围判据坏了，此时的 0 命中不可信", count)
+	// 范围下界不再写死一个历史数字（仓库重建过一次，旧值 175 是上一个仓库的血统）。
+	// 判据改成"扫到的提交数必须等于当前 HEAD 的真实条数"：既能防"只扫了 1 个提交"的假绿，
+	// 也不会因为仓库被重建、历史变短而把门禁自己判红。
+	// 期望值必须与上面那条 log 用**同一套 pathspec**（同样排除 docs/、*_test.go 等）：
+	// 不带 pathspec 的 rev-list 会把"只改了被排除路径"的提交也算进来，两边差一条就误报。
+	wantArgs := append([]string{"rev-list", "--count", "HEAD", "--", "."}, historySkipPathspecs...)
+	wantCmd := exec.Command("git", wantArgs...)
+	wantCmd.Dir = root
+	wantOut, wantErr := wantCmd.Output()
+	if wantErr != nil {
+		t.Fatalf("git rev-list --count HEAD: %v", wantErr)
+	}
+	want, convErr := strconv.Atoi(strings.TrimSpace(string(wantOut)))
+	if convErr != nil || want < 1 {
+		t.Fatalf("解析提交条数失败：%q", strings.TrimSpace(string(wantOut)))
+	}
+	if count < want {
+		t.Fatalf("只数到 %d / 应扫 %d 个提交 —— 范围判据坏了，此时的 0 命中不可信", count, want)
 	}
 
 	hits := []string{}

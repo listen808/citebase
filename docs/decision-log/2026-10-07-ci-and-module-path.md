@@ -28,7 +28,7 @@
 
 ## 现状补充（2026-11-22 核对）
 
-这份检出里**没有** `.github/` 与 `.husky/` 目录：`git ls-files` 中不存在 `.github/workflows`，`Test-Path .husky` 为 false（`.gitignore` 只忽略 `/.husky/_/`，不忽略钩子本身）。也就是说，本文所述的钩子与工作流目前都不在库内，"唯一强制 = 本地命令"不是权宜之计，而是当前事实。
+这份检出里**没有** `.husky/` 目录，`.github/` 也只有 `ISSUE_TEMPLATE`（2026-11-22 为通过 `TestGitHubIssueTemplatesParse` 补齐），没有 `workflows/`：`git ls-files` 中不存在 `.github/workflows`，`Test-Path .husky` 为 false（`.gitignore` 只忽略 `/.husky/_/`，不忽略钩子本身）。也就是说，本文所述的钩子与工作流目前都不在库内，"唯一强制 = 本地命令"不是权宜之计，而是当前事实。
 
 若要恢复远端强制，需要同时做三件事：把工作流与钩子文件重新入库、让它们与本文件列出的门禁清单对齐、并在远端确认触发条件。只恢复其中一件，会得到"看起来有 CI、实际没有"的第二种假象。
 

@@ -132,6 +132,7 @@
   "too_many_requests": "Too many requests — please wait a moment and try again",
   "topic_required": "Please provide a topic",
   "url_required": "Please provide a valid URL",
+  "vector_reindex_started": "Vector index rebuild has started — check /ai/vector/stats shortly",
   "wiki_no_compilable_content": "No compilable document content was found",
   "workflow_name_empty": "Workflow name can't be empty",
   "workflow_not_found": "Workflow not found",

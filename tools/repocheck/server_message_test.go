@@ -173,6 +173,7 @@ var serverMessageKeyBaseline = []string{
 	"too_many_requests",
 	"topic_required",
 	"url_required",
+	"vector_reindex_started",
 	"wiki_no_compilable_content",
 	"workflow_name_empty",
 	"workflow_not_found",
@@ -191,7 +192,7 @@ var serverMessageKeyBaseline = []string{
 // 这一档还没迁，先把数钉住别让它长，迁一条降一条。
 const (
 	serverMessageUnmigratedBaseline = 0
-	serverMessageFieldBaseline      = 44
+	serverMessageFieldBaseline      = 43
 )
 
 func TestServerMessageKeysAreAContract(t *testing.T) {
@@ -241,6 +242,9 @@ var serverMessageBaselineAdditions = map[string]string{
 	// fulltext_search_disabled：系统设置 search 组「开启全文搜索」总开关的拒绝文案，
 	// 出口在 SearchAPI.SearchDocuments（2026-10-19 摆设键接线批次）。
 	"fulltext_search_disabled": "系统设置「开启全文搜索」关闭时 /search/fulltext 的 503 拒绝文案",
+	// vector_reindex_started：两个向量重建 handler（全库 / 单空间）发的同一句"已受理"，
+	// 原先是数据字段里的中文，2026-11-22 迁到键并改走 response.SuccessKey（数据字段那档 44 → 43）。
+	"vector_reindex_started": "向量索引重建已异步启动，响应改为带 message_key 的成功封套",
 }
 
 func TestEveryServerMessageIsSent(t *testing.T) {

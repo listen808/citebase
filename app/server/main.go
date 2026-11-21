@@ -57,7 +57,7 @@ func main() {
 		preHost = "0.0.0.0"
 	}
 	if ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", preHost, config.AppConfig.Server.Port)); err != nil {
-		logx.Fatalf("端口 %d 已被占用（大概率已有一个 Citebase 实例在运行，先停掉它再启动）: %v", config.AppConfig.Server.Port, err)
+		logx.Fatalf("端口 %d 已被占用（大概率已有一个 %s 实例在运行，先停掉它再启动）: %v", config.AppConfig.Server.Port, brand.DefaultName, err)
 	} else {
 		ln.Close()
 	}

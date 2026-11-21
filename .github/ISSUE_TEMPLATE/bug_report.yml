@@ -1,0 +1,75 @@
+name: Bug 报告
+description: 报告一个可复现的问题（不是功能建议；功能请用另一个模板）
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先搜一下已有 issue，避免重复。
+        安全漏洞**不要**在这里报，请按 SECURITY.md 的渠道私密提交。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 一句话说清现象；能截图就贴截图
+      placeholder: 例如：在英文界面下，保存文档后 toast 显示中文
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 按顺序写，写到别人能照着做出来为止
+      placeholder: |
+        1. 打开 …
+        2. 点击 …
+        3. 看到 …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+      description: 你认为正确时应该是什么样
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      description: 最接近的一块，拿不准就选"不确定"
+      options:
+        - 登录 / 权限
+        - 空间与文档
+        - 搜索 / RAG / AI 问答
+        - 管理后台
+        - 部署 / 安装包
+        - 不确定
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 页面右下角或 `/api/v1/health` 里的版本号 / Commit
+      placeholder: 例如 2.0.0 / f19c5a2
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 运行方式
+      options:
+        - Docker
+        - Windows 安装包
+        - 源码直接运行（dev）
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过已有 issue
+          required: true
+        - label: 这不是安全漏洞（安全漏洞走 SECURITY.md）
+          required: true
