@@ -16,8 +16,10 @@
 | 组合层 | `styles/**`（本目录） | 用令牌拼装可复用样式对象（卡片、表格行、区块头……），**不得出现裸值** |
 | 视图层 | `views/**`、`components/**` | `:style` 绑定；需要新形态时先在本目录补组合对象，而不是就地写字面量 |
 
-守卫脚本：`npm run check:style` = `check-style-tokens.mjs`（变量注册表、非法拼接、裸 z-index、非 scoped、材质令牌）
-+ `check-theme-contract.mjs`（主题契约 T1–T11）+ `check-design-doctrine.mjs`（设计教条 G1–G7，见 §8）+ `check-contrast.mjs`（WCAG 对比度）+ `check-layout-contract.mjs`（页面布局契约）。
+守卫脚本：`npm run check:style` = 七道 —— `check-style-tokens.mjs`（变量注册表、非法拼接、裸 z-index、非 scoped、材质令牌）
+→ `check-theme-contract.mjs`（主题契约 T1–T17）→ `check-icon-consistency.mjs`（图标 I1–I9）→ `check-design-doctrine.mjs`（设计教条 G1–G34，见 §8）
+→ `check-contrast.mjs`（WCAG 对比度）→ `check-glass-layers.mjs`（玻璃层普查）→ `check-layout-contract.mjs`（页面布局契约 R1–R19）。
+规则族与常见失败见 [`docs/gates/static-gates.md`](../../../docs/gates/static-gates.md)。
 预览：`npm run gen:theme-preview` 从主题数据生成 `docs/ui-previews/theme-live-preview.html`。
 
 ## 2. 目录清单
@@ -170,7 +172,7 @@ const bad = { background: '#f5f5f7', borderRadius: '13px', boxShadow: '0 2px 8px
 | 文案呈现 | 问候语与语录的**文字保留**，但降级为普通标题 + muted 小字，不再是 56px 大字 + 斜体 | `PageHeader.vue` |
 | 表面令牌 | `pure-white-canvas` 是「画布/反色」语义，暗色下是黑色：**不得**当背景、不得当强调色上的文字（用 `surface-panel` / `on-accent`） | 门禁 G4 + 主题 T10/T11 |
 
-机器化：`npm run check:design`（G1–G7，已串进 `npm run check:style`）。新增页面自查三件事——
+机器化：`npm run check:design`（G1–G34，已串进 `npm run check:style`）。新增页面自查三件事——
 圆角/阴影是否走令牌、字号是否走 `AppleType`（别用展示级大字）、图标是不是 lucide。
 
 ---
