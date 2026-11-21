@@ -27,6 +27,8 @@ docs/
 │   ├── one-implementation.md      "一个概念一处实现"的收口清单
 │   ├── theme-system.md            外观 × 材质、主题契约、偏好跟账号走
 │   └── liquid-glass.md            液态玻璃材质的实现与禁区
+├── architecture/
+│   └── rag-pipeline.md            检索管线九阶段、缓存与重排的调用顺序
 ├── design/
 │   ├── personalization.md     个性化五档（动效/对比度/透明度/强调色/版面人格）的方案与取舍
 │   └── brand.md               品牌名三个落点、静态外壳、旧名归一
@@ -56,6 +58,7 @@ docs/
 | [one-implementation.md](engineering/one-implementation.md) | 某个概念现在唯一的落点在哪？ | 所有人 |
 | [theme-system.md](engineering/theme-system.md) | 四套外观 × 两种材质怎么组合？偏好怎么跟账号走？ | 前端 / 设计 |
 | [liquid-glass.md](engineering/liquid-glass.md) | 玻璃材质哪些能付 `backdrop-filter`、哪些会静默失效？ | 前端 |
+| [rag-pipeline.md](architecture/rag-pipeline.md) | 一次提问依次经过哪九道环节？缓存在哪一步短路？ | 后端 / 算法 |
 | [personalization.md](design/personalization.md) | 五档个性化为什么默认 `auto`？`persona` 为什么没有 `auto`？ | 设计 / 前端 |
 | [brand.md](design/brand.md) | 产品名到底存在哪几处？改名要动哪些？ | 设计 / 前端 / 后端 |
 | [static-gates.md](gates/static-gates.md) | 提交前到底跑哪几道门？每道拦什么？ | 所有改前端的人 |
