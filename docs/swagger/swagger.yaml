@@ -1,0 +1,2545 @@
+basePath: /api/v1
+definitions:
+  ai.DetectIntentRequest:
+    properties:
+      question:
+        type: string
+    required:
+    - question
+    type: object
+  ai.DetectIntentResponse:
+    properties:
+      confidence:
+        type: number
+      hints:
+        items:
+          type: string
+        type: array
+      intent:
+        type: string
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+      message_detail:
+        description: |-
+          MessageDetail 是给界面看的具体原因（哪个字段没填对、哪个约束冲突），不是句子。
+          为什么要把"句子"和"原因"分成两个字段：句子要翻译，原因通常不用（它是 gin binding 的
+          字段名、或某个具体值）；混在一句话里拼字符串，英文界面就会拿到半英半中的句子。
+          数据库/驱动原文**不许**进这个字段 —— 那是 internal/api/error_leak_test.go 拦的泄漏面。
+        type: string
+      message_key:
+        description: |-
+          MessageKey 是给前端的稳定文案键（契约见 messages.go）。
+          omitempty：绝大多数响应没有用户文案（成功响应、纯数据），不带这个字段就是今天的样子。
+        type: string
+    type: object
+  workspace.ApprovalHandleRequest:
+    properties:
+      comment:
+        type: string
+      decision:
+        description: approve/reject
+        enum:
+        - approve
+        - reject
+        type: string
+    required:
+    - decision
+    type: object
+  workspace.ApprovalRequest:
+    properties:
+      approver:
+        description: 指定审批人
+        type: integer
+      comment:
+        type: string
+      document_id:
+        type: integer
+    required:
+    - approver
+    - document_id
+    type: object
+  workspace.CreateTemplateRequest:
+    properties:
+      content:
+        type: string
+      description:
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      space_id:
+        type: integer
+    required:
+    - name
+    type: object
+  workspace.CreateVersionTagRequest:
+    properties:
+      color:
+        maxLength: 20
+        type: string
+      note:
+        maxLength: 500
+        type: string
+      tag_name:
+        maxLength: 100
+        type: string
+      version:
+        type: integer
+    required:
+    - tag_name
+    - version
+    type: object
+  workspace.DocumentVersionTagResponse:
+    properties:
+      color:
+        type: string
+      create_time:
+        type: integer
+      created_by:
+        type: integer
+      creator_name:
+        type: string
+      document_id:
+        type: integer
+      id:
+        type: integer
+      note:
+        type: string
+      tag_name:
+        type: string
+      version:
+        type: integer
+    type: object
+host: localhost:3001
+info:
+  contact: {}
+  description: |-
+    Enterprise AI Knowledge Management Platform
+    Wiki + RAG + Text-to-SQL all-in-one
+  title: Citebase API
+  version: 2.0.0
+paths:
+  /api/v1/ai/intent/detect:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 待识别的问题
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/ai.DetectIntentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.DetectIntentResponse'
+      summary: 识别用户输入意图
+      tags:
+      - AI
+  /api/v1/ai/memory/{id}/confirm:
+    post:
+      parameters:
+      - description: 记忆ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 确认一条记忆（使其进入召回）
+      tags:
+      - AI
+  /api/v1/ai/memory/pending:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 列出待确认的记忆
+      tags:
+      - AI
+  /api/v1/ai/wiki/export:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: zip（默认，打包全部）或 md（单页）
+        in: query
+        name: format
+        type: string
+      - description: format=md 时的页面 slug
+        in: query
+        name: slug
+        type: string
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: Wiki 知识页导出（OKF/Markdown，zip 或单页）
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}/contradictions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: 'items: []string'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面写入时矛盾标注
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}/history:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面版本历史
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}/rollback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: version
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面回滚到历史版本
+      tags:
+      - AI
+  /api/v1/ai/wiki/propose-analysis:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/title/question/answer
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 好答案回填（问答 → analysis 草稿页）
+      tags:
+      - AI
+  /api/v1/auth-sso:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: SSO 配置列表
+      tags:
+      - 认证配置
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+      summary: 创建 SSO 配置
+      tags:
+      - 认证配置
+  /api/v1/auth-sso/{id}:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 删除 SSO 配置
+      tags:
+      - 认证配置
+    get:
+      parameters:
+      - description: SSO ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 获取 SSO 配置
+      tags:
+      - 认证配置
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 更新 SSO 配置
+      tags:
+      - 认证配置
+  /api/v1/auth-sso/{id}/default:
+    put:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 设为默认认证
+      tags:
+      - 认证配置
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 登录凭证
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 用户登录
+      tags:
+      - 认证
+  /api/v1/auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 用户登出
+      tags:
+      - 认证
+  /api/v1/auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户资料（不允许修改 role_id）
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 更新当前用户资料
+      tags:
+      - 认证
+  /api/v1/auth/me/password:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 旧密码与新密码
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 修改当前用户密码
+      tags:
+      - 认证
+  /api/v1/auth/me/preferences:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: theme / material / glass_clear，取值清单见 model/user/preferences.go
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 保存当前用户偏好
+      tags:
+      - 认证
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 刷新令牌
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 刷新令牌
+      tags:
+      - 认证
+  /api/v1/backups:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 备份列表
+      tags:
+      - 备份管理
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 创建备份
+      tags:
+      - 备份管理
+  /api/v1/backups/{id}:
+    delete:
+      parameters:
+      - description: 备份 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 删除备份
+      tags:
+      - 备份管理
+  /api/v1/backups/{id}/download:
+    get:
+      parameters:
+      - description: 备份 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses: {}
+      summary: 下载备份
+      tags:
+      - 备份管理
+  /api/v1/backups/{id}/restore:
+    post:
+      parameters:
+      - description: 备份 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 从备份恢复
+      tags:
+      - 备份管理
+  /api/v1/backups/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传备份 zip（须含根下 database.sql），落到备份列表后即可恢复
+      parameters:
+      - description: 备份包 (.zip)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 导入备份包
+      tags:
+      - 备份管理
+  /api/v1/collections:
+    get:
+      parameters:
+      - description: 收藏类型 1=文档 2=空间
+        in: query
+        name: type
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 我的收藏
+      tags:
+      - 收藏
+  /api/v1/collections/check:
+    get:
+      parameters:
+      - description: 收藏类型 1=文档 2=空间
+        in: query
+        name: type
+        required: true
+        type: integer
+      - description: 资源 ID
+        in: query
+        name: resource_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 检查收藏状态
+      tags:
+      - 收藏
+  /api/v1/collections/toggle:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 'type: 1=文档 2=空间'
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            resource_id:
+              type: string
+            type:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 收藏/取消收藏
+      tags:
+      - 收藏
+  /api/v1/configs:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 系统配置列表
+      tags:
+      - 系统配置
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 配置键
+        in: query
+        name: key
+        required: true
+        type: string
+      - description: 配置值
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 更新配置
+      tags:
+      - 系统配置
+  /api/v1/configs/value:
+    get:
+      parameters:
+      - description: 配置键
+        in: query
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 获取配置值
+      tags:
+      - 系统配置
+  /api/v1/documents:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档信息
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+      summary: 创建文档
+      tags:
+      - 文档
+  /api/v1/documents/:id:
+    delete:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 删除文档
+      tags:
+      - 文档
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取文档详情
+      tags:
+      - 文档
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 文档信息
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 更新文档
+      tags:
+      - 文档
+  /api/v1/documents/:id/content:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取文档内容
+      tags:
+      - 文档
+  /api/v1/documents/:id/copy:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 复制目标
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 复制文档
+      tags:
+      - 文档
+  /api/v1/documents/:id/diff:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 起始版本号（0=当前内容）
+        in: query
+        name: from
+        required: true
+        type: integer
+      - description: 目标版本号（0=当前内容）
+        in: query
+        name: to
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 版本差异对比
+      tags:
+      - 文档
+  /api/v1/documents/:id/move:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 移动目标
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 移动文档
+      tags:
+      - 文档
+  /api/v1/documents/:id/path:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 获取文档路径
+      tags:
+      - 文档
+  /api/v1/documents/:id/permanent:
+    delete:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 彻底删除文档
+      tags:
+      - 文档
+  /api/v1/documents/:id/restore:
+    post:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 从回收站恢复文档
+      tags:
+      - 文档
+  /api/v1/documents/:id/rollback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: '{version: int}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 回滚文档版本
+      tags:
+      - 文档
+  /api/v1/documents/:id/stats:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 文档访问统计
+      tags:
+      - 文档
+  /api/v1/documents/:id/translations:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 文档翻译版本列表
+      tags:
+      - 文档翻译
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 原文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: '{lang, translated_document_id, translation_status}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+      summary: 创建文档翻译
+      tags:
+      - 文档翻译
+  /api/v1/documents/:id/versions:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 获取文档版本
+      tags:
+      - 文档
+  /api/v1/documents/:id/versions/:version:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 版本号
+        in: query
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取版本内容
+      tags:
+      - 文档
+  /api/v1/documents/{id}/approval:
+    get:
+      parameters:
+      - description: 文档ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取文档审批
+      tags:
+      - 文档
+  /api/v1/documents/{id}/full:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取文档完整信息（合并接口）
+      tags:
+      - 文档
+  /api/v1/documents/{id}/history:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 20
+        description: 返回数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 文档操作历史
+      tags:
+      - 日志
+  /api/v1/documents/{id}/mentions:
+    get:
+      parameters:
+      - description: 文档ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取文档提及用户
+      tags:
+      - 文档
+  /api/v1/documents/{id}/publish:
+    post:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 发布文档
+      tags:
+      - 文档
+  /api/v1/documents/{id}/share:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 分享文档
+      tags:
+      - 文档
+  /api/v1/documents/{id}/unpublish:
+    post:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 转为草稿
+      tags:
+      - 文档
+  /api/v1/documents/approvals:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 审批请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/workspace.ApprovalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 提交文档审批
+      tags:
+      - 文档
+  /api/v1/documents/approvals/{id}/handle:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 审批记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 审批处理
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/workspace.ApprovalHandleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 处理审批
+      tags:
+      - 文档
+  /api/v1/documents/sort:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 排序请求
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 批量排序文档
+      tags:
+      - 文档
+  /api/v1/documents/tree:
+    get:
+      parameters:
+      - description: 空间 ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 获取空间文档树
+      tags:
+      - 文档
+  /api/v1/emails:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 邮件服务器列表
+      tags:
+      - 邮件管理
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邮件服务器配置
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+      summary: 创建邮件服务器
+      tags:
+      - 邮件管理
+  /api/v1/emails/{id}:
+    delete:
+      parameters:
+      - description: 邮件服务器 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 删除邮件服务器
+      tags:
+      - 邮件管理
+    get:
+      parameters:
+      - description: 邮件服务器 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取邮件服务器详情
+      tags:
+      - 邮件管理
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邮件服务器 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新内容
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 更新邮件服务器
+      tags:
+      - 邮件管理
+  /api/v1/emails/{id}/default:
+    put:
+      parameters:
+      - description: 邮件服务器 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 设为默认
+      tags:
+      - 邮件管理
+  /api/v1/emails/test:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 测试邮件内容
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 发送测试邮件
+      tags:
+      - 邮件管理
+  /api/v1/follow/check:
+    get:
+      parameters:
+      - description: '关注类型: 1=文档 2=用户'
+        in: query
+        name: type
+        required: true
+        type: integer
+      - description: 对象ID
+        in: query
+        name: object_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              is_following:
+                type: boolean
+            type: object
+      summary: 检查是否关注用户/文档
+      tags:
+      - 关注
+  /api/v1/follow/document:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档ID
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            document_id:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              ' follow':
+                type: object
+              followed:
+                type: boolean
+            type: object
+      summary: 关注或取消关注文档
+      tags:
+      - 关注
+  /api/v1/follow/followers:
+    get:
+      parameters:
+      - description: 用户ID，不传则查当前用户
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              ' followers':
+                type: integer
+              data:
+                items:
+                  type: object
+                type: array
+            type: object
+      summary: 获取粉丝列表
+      tags:
+      - 关注
+  /api/v1/follow/following:
+    get:
+      parameters:
+      - description: 用户ID，不传则查当前用户
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              ' followers':
+                type: integer
+              ' following':
+                type: integer
+              data:
+                items:
+                  type: object
+                type: array
+            type: object
+      summary: 获取关注列表
+      tags:
+      - 关注
+  /api/v1/follow/stats:
+    get:
+      parameters:
+      - description: 用户ID，不传则查当前用户
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              ' followers':
+                type: integer
+              following:
+                type: integer
+            type: object
+      summary: 获取关注统计
+      tags:
+      - 关注
+  /api/v1/follow/user:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 目标用户ID
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            user_id:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              ' follow':
+                type: object
+              followed:
+                type: boolean
+            type: object
+      summary: 关注或取消关注用户
+      tags:
+      - 关注
+  /api/v1/install/init-db:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 初始化数据库
+      tags:
+      - 安装向导
+  /api/v1/install/init-system:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+      summary: 初始化系统
+      tags:
+      - 安装向导
+  /api/v1/install/state:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 安装状态
+      tags:
+      - 安装向导
+  /api/v1/logs/activity:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 操作类型筛选 create/edit/delete
+        in: query
+        name: action
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 用户活动记录
+      tags:
+      - 日志
+  /api/v1/logs/recent-errors:
+    get:
+      parameters:
+      - default: 5
+        description: 返回数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 最近错误日志
+      tags:
+      - 日志
+  /api/v1/logs/system:
+    get:
+      parameters:
+      - description: 日志级别 3=ERROR 4=WARN 6=INFO
+        in: query
+        name: level
+        type: integer
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 系统日志
+      tags:
+      - 日志
+  /api/v1/logs/users/{id}/activity:
+    get:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 指定用户活动记录
+      tags:
+      - 日志
+  /api/v1/mentions/preview:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文本
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 预览提及标识
+      tags:
+      - 文档
+  /api/v1/open/api-keys:
+    get:
+      responses: {}
+      summary: 密钥列表
+      tags:
+      - 开放平台
+    post:
+      responses: {}
+      summary: 创建开放平台密钥
+      tags:
+      - 开放平台
+  /api/v1/open/api-keys/:id/revoke:
+    post:
+      responses: {}
+      summary: 吊销密钥
+      tags:
+      - 开放平台
+  /api/v1/open/export/:module:
+    get:
+      parameters:
+      - description: 导出模块
+        in: path
+        name: module
+        required: true
+        type: string
+      - default: csv
+        description: 导出格式
+        in: query
+        name: format
+        type: string
+      responses: {}
+      summary: 批量导出数据（开放平台）
+      tags:
+      - 开放平台
+  /api/v1/open/me:
+    get:
+      responses: {}
+      summary: 开放平台应用信息
+      tags:
+      - 开放平台
+  /api/v1/roles:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 获取角色列表
+      tags:
+      - 角色
+  /api/v1/roles/{id}/users:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: 为角色添加用户
+      tags:
+      - 角色
+  /api/v1/search/debug/:id:
+    get:
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 调试：检查文档索引状态
+      tags:
+      - 搜索
+  /api/v1/search/expand:
+    get:
+      parameters:
+      - description: 搜索关键字
+        in: query
+        name: query
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 同义词扩展查询
+      tags:
+      - 搜索
+  /api/v1/search/fulltext:
+    get:
+      parameters:
+      - description: 搜索关键字，支持多关键字：A|B（OR）或 A B（AND）
+        in: query
+        name: query
+        required: true
+        type: string
+      - default: all
+        description: 搜索类型：all/title/content
+        in: query
+        name: type
+        type: string
+      - description: 空间 ID
+        in: query
+        name: space_id
+        type: integer
+      - description: 作者用户 ID
+        in: query
+        name: author_id
+        type: integer
+      - description: 标签名
+        in: query
+        name: tag_name
+        type: string
+      - description: 时间范围起始（Unix 时间戳）
+        in: query
+        name: time_from
+        type: integer
+      - description: 时间范围结束（Unix 时间戳）
+        in: query
+        name: time_to
+        type: integer
+      - description: 排序方式：relevance(默认)/time_desc/time_asc
+        in: query
+        name: sort_by
+        type: string
+      - default: 20
+        description: 结果数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 全文搜索文档
+      tags:
+      - 搜索
+  /api/v1/search/index/:id:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文档 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 索引单个文档
+      tags:
+      - 搜索
+  /api/v1/search/monitor:
+    get:
+      parameters:
+      - description: 趋势窗口天数，默认 7，上限 365
+        in: query
+        name: days
+        type: integer
+      - description: 热门搜索词条数，默认 10，上限 50
+        in: query
+        name: hot_limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 搜索监控统计
+      tags:
+      - 搜索
+  /api/v1/search/reindex:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 重新索引所有文档
+      tags:
+      - 搜索
+  /api/v1/search/reindex/status:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取重建索引状态
+      tags:
+      - 搜索
+  /api/v1/search/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取索引统计
+      tags:
+      - 搜索
+  /api/v1/search/suggest:
+    get:
+      parameters:
+      - description: 搜索关键字
+        in: query
+        name: query
+        required: true
+        type: string
+      - default: 10
+        description: 结果数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 搜索建议
+      tags:
+      - 搜索
+  /api/v1/search/synonyms:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取搜索同义词
+      tags:
+      - 搜索
+  /api/v1/search/tags:
+    get:
+      parameters:
+      - description: 标签关键字
+        in: query
+        name: keyword
+        type: string
+      - default: 50
+        description: 返回数量
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: 获取标签列表
+      tags:
+      - 搜索
+  /api/v1/spaces/:id/import:
+    post:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 导入内容
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 批量导入文档
+      tags:
+      - 文档
+  /api/v1/spaces/:id/trash:
+    get:
+      parameters:
+      - description: 空间 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 获取空间回收站列表
+      tags:
+      - 文档
+  /api/v1/stats/collect-doc-rank:
+    get:
+      parameters:
+      - description: 数量(默认20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 文档收藏排行
+      tags:
+      - 统计监控
+  /api/v1/stats/compliance-report:
+    get:
+      responses: {}
+      summary: 合规报告
+      tags:
+      - 统计监控
+  /api/v1/stats/compliance-report/export:
+    get:
+      responses: {}
+      summary: 导出合规报告
+      tags:
+      - 统计监控
+  /api/v1/stats/dashboard:
+    get:
+      parameters:
+      - description: 天数(默认10)
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 仪表盘统计
+      tags:
+      - 统计监控
+  /api/v1/stats/export/:module:
+    get:
+      parameters:
+      - description: 导出模块 (documents|spaces|users)
+        in: path
+        name: module
+        required: true
+        type: string
+      - default: csv
+        description: 导出格式 (csv|json)
+        in: query
+        name: format
+        type: string
+      responses: {}
+      summary: 批量导出数据
+      tags:
+      - 数据导出
+  /api/v1/stats/server:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 服务器状态
+      tags:
+      - 统计监控
+  /api/v1/stats/time:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: 服务器时间
+      tags:
+      - 统计监控
+  /api/v1/templates:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 模板
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/workspace.CreateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 创建文档模板
+      tags:
+      - 模板
+  /api/v1/translations/:id:
+    delete:
+      parameters:
+      - description: 翻译关联 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 删除文档翻译
+      tags:
+      - 文档翻译
+  /api/v1/translations/languages:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 支持的语言列表
+      tags:
+      - 文档翻译
+  /api/v1/users:
+    get:
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 角色ID筛选
+        in: query
+        name: role_id
+        type: integer
+      - description: 关键词搜索(用户名/姓名)
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+      summary: 获取用户列表
+      tags:
+      - 用户
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户信息
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+      summary: 创建用户
+      tags:
+      - 用户
+  /api/v1/users/:id:
+    delete:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 删除用户
+      tags:
+      - 用户
+    get:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 获取用户信息
+      tags:
+      - 用户
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 用户信息
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: 更新用户信息
+      tags:
+      - 用户
+  /api/v1/users/:id/forbidden:
+    put:
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 切换用户禁用状态
+      tags:
+      - 用户
+  /api/v1/users/:id/password:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: '{old_password?: string, new_password: string}'
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: message
+      summary: 修改密码
+      tags:
+      - 用户
+  /api/v1/users/export:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: users.csv
+          schema:
+            type: file
+      summary: 导出用户列表
+      tags:
+      - 用户
+  /documents/{id}/version-tags:
+    get:
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/workspace.DocumentVersionTagResponse'
+                  type: array
+              type: object
+      summary: Get document version tags
+      tags:
+      - version-tag
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Version tag data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workspace.CreateVersionTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/workspace.DocumentVersionTagResponse'
+              type: object
+      summary: Create a version tag
+      tags:
+      - version-tag
+  /documents/{id}/versions/{version}/tags:
+    get:
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Version number
+        in: path
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/workspace.DocumentVersionTagResponse'
+                  type: array
+              type: object
+      summary: Get version tags
+      tags:
+      - version-tag
+  /spaces/{id}/version-tags:
+    get:
+      parameters:
+      - description: Space ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/workspace.DocumentVersionTagResponse'
+                  type: array
+              type: object
+      summary: Get space version tags
+      tags:
+      - version-tag
+  /version-tags/{tagId}:
+    delete:
+      parameters:
+      - description: Tag ID
+        in: path
+        name: tagId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Delete a version tag
+      tags:
+      - version-tag
+securityDefinitions:
+  BearerAuth:
+    description: Bearer {token}
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
