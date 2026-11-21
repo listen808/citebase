@@ -22,6 +22,7 @@
 docs/
 ├── README.md                  ← 本索引
 ├── engineering/
+│   ├── codebase-map.md            模块地图：启动顺序、分层、19 个 AI 子包、数据库生成链、统计口径
 │   ├── backend-conventions.md     Go 分层、响应封套、错误、RBAC、迁移、测试
 │   ├── frontend-conventions.md    页面容器、版心、共享样式、组件与交互口径
 │   ├── one-implementation.md      "一个概念一处实现"的收口清单
@@ -44,6 +45,8 @@ docs/
 │   ├── launch-checklist.md    上线前逐项检查（环境变量、库、代理、备份、回滚）
 │   └── windows-packaging.md   Windows 便携包 / Inno Setup 安装器的构建链与坑
 ├── audits/                    一次性审计的人读报告（机读 JSON 不入库）
+├── product/
+│   └── interface.md           界面预览与复刻依据（README 的视觉附录，唯一一份）
 ├── glossary/                  术语表（frontend-glossary.md 是 glossary-audit.mjs 的输入）
 ├── ui-previews/               生成物：npm run gen:theme-preview 产出
 └── swagger/                   生成物：make swagger 产出
@@ -54,6 +57,7 @@ docs/
 | 文档 | 回答的问题 | 主要读者 |
 |---|---|---|
 | [backend-conventions.md](engineering/backend-conventions.md) | 新接口该写在哪一层？错误怎么返回？加表要动哪几处？ | 后端 |
+| [codebase-map.md](engineering/codebase-map.md) | 某个能力落在哪个包？文件数怎么数？DDL 从哪来？ | 后端 / 前端 |
 | [frontend-conventions.md](engineering/frontend-conventions.md) | 页面根节点怎么摆？版心多宽？为什么没有 CSS 文件？ | 前端 |
 | [one-implementation.md](engineering/one-implementation.md) | 某个概念现在唯一的落点在哪？ | 所有人 |
 | [theme-system.md](engineering/theme-system.md) | 四套外观 × 两种材质怎么组合？偏好怎么跟账号走？ | 前端 / 设计 |
@@ -64,6 +68,7 @@ docs/
 | [static-gates.md](gates/static-gates.md) | 提交前到底跑哪几道门？每道拦什么？ | 所有改前端的人 |
 | [runtime-inspectors.md](gates/runtime-inspectors.md) | 哪些问题静态查不到、必须开浏览器量？ | 前端 / QA |
 | [decision-log/](decision-log/) | 这条规矩的来历是什么？ | 所有人 |
+| [interface.md](product/interface.md) | 截图与复刻图上的每个取值来自代码哪一处？ | 设计 / 前端 / 文档 |
 | [launch-checklist.md](release/launch-checklist.md) | 上线前还有哪几项没配？ | 运维 / 发布 |
 | [windows-packaging.md](release/windows-packaging.md) | 安装包为什么装在 `%LOCALAPPDATA%`？快捷方式为什么指 `start.bat`？ | 发布 |
 
