@@ -13,7 +13,7 @@ type EvalQuestion struct {
 	ExpectedContext []string `json:"expected_context"`
 	Difficulty      string   `json:"difficulty"` // easy/medium/hard
 	// W4: 四段式标注
-	ExpectedIntent string `json:"expected_intent,omitempty"` // 期望路由意图（factual/conceptual/procedural/comparison/creative）
+	ExpectedIntent string `json:"expected_intent,omitempty"`  // 期望路由意图（factual/conceptual/procedural/comparison/creative）
 	ExpectedDocIDs []int  `json:"expected_doc_ids,omitempty"` // 期望命中的文档 ID 列表
 	// W4: RGB 噪声标注
 	NoiseType string `json:"noise_type,omitempty"` // none/noise/contradiction/reasoning
@@ -30,10 +30,10 @@ type RAGASMetrics struct {
 	// 与 ContextRecall 同源，但单独归到「检索层」用于三层归因——「答案错了」先定位是哪层坏的。
 	RetrievalHitRate float64 `json:"retrieval_hit_rate"`
 	// W4: 四段式过程指标
-	RoutingAccuracy float64 `json:"routing_accuracy"` // 路由层：查询类型分类是否匹配期望意图
+	RoutingAccuracy float64 `json:"routing_accuracy"`   // 路由层：查询类型分类是否匹配期望意图
 	RetrievalHitAtK float64 `json:"retrieval_hit_at_k"` // 检索层：Top-K 是否包含期望文档
-	RerankNDCG     float64 `json:"rerank_ndcg"`  // 重排层：NDCG@K
-	NoiseRobustness float64 `json:"noise_robustness"` // 生成层：噪声鲁棒性（RGB 噪声下答案质量保持比）
+	RerankNDCG      float64 `json:"rerank_ndcg"`        // 重排层：NDCG@K
+	NoiseRobustness float64 `json:"noise_robustness"`   // 生成层：噪声鲁棒性（RGB 噪声下答案质量保持比）
 }
 
 // LayerScores 把指标按 RAG 三层聚合，供前端归因展示：
@@ -43,8 +43,8 @@ type LayerScores struct {
 	Enrich     float64 `json:"enrich"`     // 增强层：ContextPrecision ∪ ContextRecall
 	Generation float64 `json:"generation"` // 生成层：Faithfulness / AnswerRelevance / AnswerCorrectness
 	// W4: 四段式过程指标
-	Routing  float64 `json:"routing"`  // 路由层：RoutingAccuracy
-	Rerank   float64 `json:"rerank"`   // 重排层：RerankNDCG
+	Routing  float64 `json:"routing"`   // 路由层：RoutingAccuracy
+	Rerank   float64 `json:"rerank"`    // 重排层：RerankNDCG
 	NoiseRes float64 `json:"noise_res"` // 噪声鲁棒性：NoiseRobustness
 }
 

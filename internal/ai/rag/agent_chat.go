@@ -1028,5 +1028,3 @@ func (a *AgentChat) retrieveWithStrategy(ctx context.Context, question string, s
 		return a.retriever.filterSourcesForCtx(ctx, sources), string(strategy)
 	}
 }
-
-

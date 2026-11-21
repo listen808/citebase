@@ -141,8 +141,8 @@ type Retriever struct {
 	contentCache          map[int]string
 	contentCacheMu        sync.RWMutex
 	parallelRetriever     *ParallelRetriever
-	graphExpander         WikiGraphExpander      // P4：wiki 图谱 2-hop 扩展（可选，启动时注入）
-	adaptiveRetriever     *AdaptiveRetriever     // C1：查询类型路由（可选，启动时注入）
+	graphExpander         WikiGraphExpander                 // P4：wiki 图谱 2-hop 扩展（可选，启动时注入）
+	adaptiveRetriever     *AdaptiveRetriever                // C1：查询类型路由（可选，启动时注入）
 	ctxCompressor         *compression.ContextualCompressor // A1：句级语义压缩（可选，启动时注入）
 	MiddlewareChain       *middleware.Chain
 }

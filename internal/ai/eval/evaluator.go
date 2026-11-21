@@ -275,7 +275,7 @@ func (e *Evaluator) computeNDCG(expectedDocIDs []int, sources []rag.Source) floa
 			rel = 1.0
 		}
 		if rel > 0 {
-			dcg += (math.Pow(2, rel) - 1) / math.Log2(float64(i+1) + 1)
+			dcg += (math.Pow(2, rel) - 1) / math.Log2(float64(i+1)+1)
 		}
 	}
 
@@ -291,7 +291,7 @@ func (e *Evaluator) computeNDCG(expectedDocIDs []int, sources []rag.Source) floa
 	}
 	var idcg float64
 	for i := 0; i < nRelevant; i++ {
-		idcg += (math.Pow(2, 1.0) - 1) / math.Log2(float64(i+1) + 1)
+		idcg += (math.Pow(2, 1.0) - 1) / math.Log2(float64(i+1)+1)
 	}
 
 	if idcg == 0 {

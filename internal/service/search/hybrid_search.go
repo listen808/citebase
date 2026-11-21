@@ -25,11 +25,11 @@ type VectorSearcher interface {
 
 // FullTextSearchOptions configures a full-text search request.
 type FullTextSearchOptions struct {
-	SpaceIDs         []uint
-	AllowedSpaceIDs  []uint // 用户可访问的空间ID列表（用于前置过滤）
-	CategoryIDs      []uint
-	Tags             []string
-	TopK             int
+	SpaceIDs        []uint
+	AllowedSpaceIDs []uint // 用户可访问的空间ID列表（用于前置过滤）
+	CategoryIDs     []uint
+	Tags            []string
+	TopK            int
 }
 
 // SearchHit represents a single full-text search result.
@@ -69,16 +69,16 @@ func DefaultHybridSearchConfig() HybridSearchConfig {
 
 // HybridSearchRequest is the inbound request for hybrid search.
 type HybridSearchRequest struct {
-	Query       string   `json:"query" binding:"required"`
-	SpaceIDs    []uint   `json:"space_ids,omitempty"`    // 用户请求的空间ID列表（API层已与权限取交集）
-	AllowedSpaceIDs []uint `json:"allowed_space_ids,omitempty"` // 用户的有效权限空间ID列表（API层计算后注入）
-	CategoryIDs []uint   `json:"category_ids,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
-	DateFrom    string   `json:"date_from,omitempty"`
-	DateTo      string   `json:"date_to,omitempty"`
-	SearchMode  string   `json:"search_mode"` // "hybrid", "fulltext", "semantic"
-	Page        int      `json:"page"`
-	PageSize    int      `json:"page_size"`
+	Query           string   `json:"query" binding:"required"`
+	SpaceIDs        []uint   `json:"space_ids,omitempty"`         // 用户请求的空间ID列表（API层已与权限取交集）
+	AllowedSpaceIDs []uint   `json:"allowed_space_ids,omitempty"` // 用户的有效权限空间ID列表（API层计算后注入）
+	CategoryIDs     []uint   `json:"category_ids,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	DateFrom        string   `json:"date_from,omitempty"`
+	DateTo          string   `json:"date_to,omitempty"`
+	SearchMode      string   `json:"search_mode"` // "hybrid", "fulltext", "semantic"
+	Page            int      `json:"page"`
+	PageSize        int      `json:"page_size"`
 }
 
 // HybridSearchResult is a single result in the hybrid search response.
@@ -160,9 +160,9 @@ func (s *HybridSearchService) Search(ctx context.Context, req *HybridSearchReque
 	var ftErr, vecErr error
 
 	ftOpts := FullTextSearchOptions{
-		SpaceIDs:    req.SpaceIDs,
-		Tags:        req.Tags,
-		TopK:        topK,
+		SpaceIDs:        req.SpaceIDs,
+		Tags:            req.Tags,
+		TopK:            topK,
 		AllowedSpaceIDs: req.AllowedSpaceIDs,
 	}
 
