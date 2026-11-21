@@ -1,0 +1,157 @@
+version: "3.8"
+
+# ============================================
+# Citebase 一键部署配置
+# ============================================
+# 使用方法:
+#   1. 复制环境变量模板: cp .env.example .env
+#   2. 编辑 .env 修改密码和密钥（MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD / JWT_SECRET 必填）
+#   3. 启动: docker compose up -d
+#   4. 访问: http://localhost:3001
+#
+# 配置注入说明:
+#   生产配置通过环境变量注入，不要把真实凭据写入 configs/config.yaml（该文件已被 .gitignore 忽略）。
+#   - 数据库 DSN: 由 AIWIKI_DB_DSN 环境变量覆盖（见 app.environment）
+#   - JWT 密钥: AIWIKI_JWT_SECRET
+#   - 加密密钥: AIWIKI_ENCRYPT_KEY（32 字节 hex，用 openssl rand -hex 32 生成）
+#   以上旧名继续有效；项目改名 Citebase 后同一项也可以用 CITEBASE_* 覆盖（新名优先、旧名兜底）。
+#   如需自定义 YAML 配置，可 cp configs/config_sample.yaml configs/config.yaml 后修改，
+#   但切勿提交真实凭据到版本库。
+# ============================================
+
+services:
+  # MySQL 数据库
+  mysql:
+    # 统一用 8.4（与 gdbops/Beacon/现网 mysql-citebase 同版本），8.4 兼容 5.7 SQL 方言。
+    # 8.4 已移除 mysql_native_password 认证插件与该命令行参数，故不指定
+    # --default-authentication-plugin；应用账号走 caching_sha2_password，
+    # go-sql-driver/mysql（v1.7.0）已支持。collation 用 utf8mb4_unicode_ci（5.7/8.4 通吃）。
+    image: mysql:8.4
+    container_name: citebase-mysql
+    restart: unless-stopped
+    environment:
+      # 数据库口令必须显式提供：内置弱默认值一旦被人记住，等于把 3306 直接暴露成可猜入口。
+      # :? 语法会在缺失时让 compose 立刻报错退出，而不是悄悄起出一个弱口令实例。
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中显式设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-citebase}
+      MYSQL_USER: ${MYSQL_USER:-citebase}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中显式设置 MYSQL_PASSWORD}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"   # 只绑回环：数据库端口不对外暴露
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 初始化脚本必须按「建表 → 基础数据」顺序执行：
+      # 整目录挂载时 MySQL 按文件名字母序 source，data.sql 会排在 table.sql 之前，
+      # 全新卷上必然初始化失败。这里逐个挂载并用序号前缀固定顺序。
+      - ./databases/table.sql:/docker-entrypoint-initdb.d/01_table.sql:ro
+      - ./databases/data.sql:/docker-entrypoint-initdb.d/02_data.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - citebase-net
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: citebase-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"   # 缓存端口同样不对外暴露
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - citebase-net
+
+  # Citebase 应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # COMMIT=$(git rev-parse --short HEAD) docker compose build 才会带上真实 commit；
+      # 不设就是 dev —— 与 Makefile / package-windows.bat 同一套口径。
+      args:
+        COMMIT: ${COMMIT:-dev}
+    container_name: citebase-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3001}:3001"
+    environment:
+      # 数据库连接（覆盖 config.yaml 中的 DSN）
+      AIWIKI_DB_DSN: "citebase:${MYSQL_PASSWORD}@tcp(mysql:3306)/${MYSQL_DATABASE:-citebase}?charset=utf8mb4&parseTime=True"
+      # JWT 密钥（生产环境必须设置）
+      AIWIKI_JWT_SECRET: ${JWT_SECRET:-}
+      # 数据源口令与 SMTP 口令的静态加密密钥（AES-GCM）。
+      # 留空时应用会退到"本机首启生成并持久化"的 data/.encrypt_key —— 单容器够用，
+      # 但多副本部署时每个 Pod 会各生成一把，A 加密的口令 B 解不开（解不开会被当明文回灌，
+      # 表现为"目标库认证失败"而不是"密钥不对"）。所以多副本必须显式设这一项。
+      AIWIKI_ENCRYPT_KEY: ${AIWIKI_ENCRYPT_KEY:-}
+      # AI 配置走的是**无前缀**变量（与 YAML 里的 ai.* 两套并存，代码里以 env 优先）。
+      # 留空 = 不覆盖配置文件，改由管理端"模型配置"页写入。
+      AI_ENABLED: ${AI_ENABLED:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      # 运行环境
+      AIWIKI_ENV: ${AIWIKI_ENV:-production}
+    volumes:
+      # 持久化数据（文档/图片/附件/索引/日志）
+      - app_data:/app/data
+      # 配置文件（可选挂载；不挂载时使用镜像内 config_sample.yaml + 环境变量覆盖）
+      # 如需自定义: cp configs/config_sample.yaml configs/config.yaml 后修改并挂载
+      - ./configs/config.yaml:/app/configs/config.yaml:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - citebase-net
+
+  # ============================================
+  # 可选: Qdrant 向量数据库（启用 AI 向量检索时使用）
+  # 取消注释并设置 QDRANT_ENABLED=true 启用
+  # ============================================
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: citebase-qdrant
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${QDRANT_PORT:-6333}:6333"
+  #   volumes:
+  #     - qdrant_data:/qdrant/storage
+  #   networks:
+  #     - citebase-net
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+  # qdrant_data:
+  #   driver: local
+
+networks:
+  citebase-net:
+    driver: bridge

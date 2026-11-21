@@ -1,0 +1,65 @@
+run:
+  timeout: 5m
+  tests: true
+  # 存量代码里有大量未检查的错误返回值。一次性对全量代码启用 errcheck/gosec 会让
+  # 门禁从第一天就红到没人看，等于没有门禁。这里只检查本次改动引入的问题，
+  # 存量问题随改动逐步收敛；等存量清零后再去掉 new: true。
+  new: true
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unconvert
+    # P0-5：错误忽略与安全扫描此前完全没进门禁
+    - errcheck
+    - gosec
+    - revive
+    - bodyclose
+    - noctx
+
+linters-settings:
+  errcheck:
+    # 仅兜底：显式写 _ = 的赋值不算漏检
+    check-blank: false
+    # 以下函数的错误返回值在调用点无意义（连接已断、日志已记、最佳努力操作），
+    # 逐一 _ = 只会增加噪音。
+    exclude-functions:
+      - fmt.Sscanf
+      - (net/http.ResponseWriter).Write
+      - (github.com/gorilla/websocket.Conn).SetReadDeadline
+      - (github.com/gorilla/websocket.Conn).SetWriteDeadline
+      - (github.com/gorilla/websocket.Conn).WriteMessage
+      - (github.com/listen808/citebase/internal/service/workspace.LogService).LogDocumentAction
+  gosec:
+    # G115（int 转换溢出）：Go 1.20 新增检查，存量代码 100+ 处 int 转换均为
+    # 业务 ID / 偏移量，无溢出风险。一次性修完不现实，先排除；等 go1.21 的
+    # 内置安全转换普及后再收敛。
+    # G404（math/rand）：非密码学场景（采样、随机重试抖动）使用 math/rand 是标准做法。
+    excludes:
+      - G115
+      - G404
+  revive:
+    rules:
+      # 导出符号注释属于风格要求，存量代码缺口太大，先不拦
+      - name: exported
+        disabled: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - staticcheck
+        - gosec
+        - errcheck
+        - noctx
+    # tools/ 是独立命令行工具，无请求 ctx 可传递，noctx 不适用
+    - path: tools/
+      linters:
+        - noctx
+  max-issues-per-linter: 0
+  max-same-issues: 0

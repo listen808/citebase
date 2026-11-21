@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="100%" role="img" aria-label="Citebase 前端真实复刻：知识空间文档编辑页 /space/:spaceId/doc/:docId/edit。注意此路由隐藏全局侧栏。300px 文档树侧栏（渐变首字母 + 空间名 + 128 篇文档、搜索文档... 输入框、全部/收藏/最近分段标签、26px 行高树节点、选中行为 16% 蓝色底）、编辑器分栏（左 Monaco、右「实时预览」）、AI 幽灵文本灰色斜体续写与「按 Tab 接受 · Esc 取消」提示、底部状态栏「1,284 字 · 已保存 · 3 人协作」、右下角 36px 圆形目录浮动按钮。几何与色值出处见 README「界面复刻依据」。">
+  <title>文档编辑与协同界面复刻：文档树、编辑器分栏、AI 续写提示与协作状态栏</title>
+  <defs>
+    <filter id="win2" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000" flood-opacity="0.10"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0071e3"/><stop offset="1" stop-color="#af52de"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34c759"/><stop offset="1" stop-color="#5ac8fa"/>
+    </linearGradient>
+  </defs>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif">
+    <rect width="1200" height="700" fill="#f5f5f7"/>
+    <rect x="24" y="24" width="1152" height="652" rx="18" fill="#ffffff" stroke="#e5e5e5" filter="url(#win2)"/>
+
+    <!-- ===== ApNavBar（/space/* 隐藏 ApSidebar，全宽页面） ===== -->
+    <rect x="24" y="24" width="1152" height="60" fill="#ffffff"/>
+    <line x1="24" y1="84" x2="1176" y2="84" stroke="rgba(0,0,0,0.12)"/>
+    <rect x="40" y="36" width="36" height="36" rx="10" fill="#e6f2ff"/>
+    <path d="M50 62v-9a2 2 0 012-2h4l2 3h6a2 2 0 012 2v6a2 2 0 01-2 2H52a2 2 0 01-2-2z" fill="#0071e3"/>
+    <text x="86" y="60" font-size="18" font-weight="600" fill="#1d1d1f">Citebase</text>
+    <line x1="158" y1="42" x2="158" y2="66" stroke="#d2d2d7"/>
+    <text x="174" y="60" font-size="16" fill="#1d1d1f">首页</text>
+    <text x="222" y="60" font-size="16" fill="#6e6e73">AI</text>
+    <text x="264" y="60" font-size="16" fill="#6e6e73">用户</text>
+    <text x="1050" y="60" font-size="16" fill="#6e6e73">搜索</text>
+    <rect x="1096" y="42" width="40" height="24" rx="6" fill="#ffffff" stroke="#e5e5e5"/>
+    <text x="1116" y="59" font-size="15" fill="#86868b" text-anchor="middle">⌘K</text>
+
+    <!-- ===== 文档树侧栏 300px（可拖 280–400） ===== -->
+    <line x1="324" y1="84" x2="324" y2="676" stroke="#e5e5e5"/>
+    <rect x="324" y="84" width="6" height="592" fill="#f0f0f0"/>
+    <rect x="40" y="100" width="36" height="36" rx="10" fill="url(#grad)"/>
+    <text x="58" y="125" font-size="17" font-weight="600" fill="#ffffff" text-anchor="middle">工</text>
+    <text x="86" y="116" font-size="16" font-weight="600" fill="#1d1d1f">工程知识库</text>
+    <text x="86" y="134" font-size="14" fill="#6e6e73">128 篇文档</text>
+    <rect x="40" y="150" width="268" height="36" rx="13" fill="#f5f5f7" stroke="#f0f0f0"/>
+    <circle cx="58" cy="168" r="5" fill="none" stroke="#86868b" stroke-width="1.6"/>
+    <line x1="62" y1="172" x2="66" y2="176" stroke="#86868b" stroke-width="1.6"/>
+    <text x="76" y="173" font-size="15" fill="#86868b">搜索文档...</text>
+
+    <rect x="40" y="198" width="180" height="32" rx="13" fill="#f0f0f0"/>
+    <rect x="44" y="202" width="56" height="24" rx="11" fill="#ffffff" stroke="#e5e5e5"/>
+    <text x="72" y="219" font-size="14" font-weight="600" fill="#1d1d1f" text-anchor="middle">全部</text>
+    <text x="132" y="219" font-size="14" fill="#6e6e73" text-anchor="middle">收藏</text>
+    <text x="188" y="219" font-size="14" fill="#6e6e73" text-anchor="middle">最近</text>
+    <rect x="236" y="202" width="24" height="24" rx="7" fill="#f5f5f7"/>
+    <rect x="264" y="202" width="24" height="24" rx="7" fill="#f5f5f7"/>
+    <text x="248" y="219" font-size="15" fill="#6e6e73" text-anchor="middle">↕</text>
+    <text x="276" y="219" font-size="15" fill="#6e6e73" text-anchor="middle">⋯</text>
+
+    <!-- 树节点：行高 26、圆角 8、缩进 level*16 -->
+    <path d="M48 250l5 5-5 5" stroke="#86868b" stroke-width="1.7" fill="none"/>
+    <path d="M62 249h5l2 3h7v8H62z" fill="rgb(245,166,35)"/>
+    <text x="82" y="259" font-size="15" fill="#1d1d1f">架构设计</text>
+    <rect x="70" y="270" width="200" height="26" rx="8" fill="rgba(0,113,227,0.16)"/>
+    <rect x="82" y="277" width="11" height="13" rx="2" fill="none" stroke="#0071e3" stroke-width="1.5"/>
+    <text x="100" y="288" font-size="15" font-weight="600" fill="#0071e3">系统概览</text>
+    <rect x="82" y="303" width="11" height="13" rx="2" fill="none" stroke="#74747a" stroke-width="1.5"/>
+    <text x="100" y="314" font-size="15" fill="#1d1d1f">分层依赖契约</text>
+    <path d="M48 326l5 5-5 5" stroke="#86868b" stroke-width="1.7" fill="none"/>
+    <path d="M62 325h5l2 3h7v8H62z" fill="rgb(245,166,35)"/>
+    <text x="82" y="335" font-size="15" fill="#1d1d1f">运维手册</text>
+    <rect x="82" y="351" width="11" height="13" rx="2" fill="none" stroke="#74747a" stroke-width="1.5"/>
+    <text x="100" y="362" font-size="15" fill="#1d1d1f">部署与回滚</text>
+    <rect x="82" y="377" width="11" height="13" rx="2" fill="none" stroke="#74747a" stroke-width="1.5"/>
+    <text x="100" y="388" font-size="15" fill="#1d1d1f">监控指标清单</text>
+    <path d="M44 404l5 5-5 5" stroke="#d2d2d7" stroke-width="1.7" fill="none"/>
+    <path d="M58 403h5l2 3h7v8H58z" fill="rgb(245,166,35)"/>
+    <text x="78" y="413" font-size="15" fill="#1d1d1f">需求与评审</text>
+
+    <!-- ===== 内容区：面包屑 + 状态徽标 + 操作 ===== -->
+    <text x="360" y="122" font-size="15" fill="#6e6e73">工程知识库 › 架构设计 › 系统概览</text>
+    <rect x="600" y="106" width="44" height="22" rx="11" fill="rgba(0,113,227,0.12)"/>
+    <text x="622" y="122" font-size="14" font-weight="600" fill="#0071e3" text-anchor="middle">编辑</text>
+    <rect x="360" y="148" width="88" height="26" rx="13" fill="#e6f9ef"/>
+    <circle cx="374" cy="161" r="4" fill="#34c759"/>
+    <text x="384" y="167" font-size="15" font-weight="600" fill="#34c759">已发布</text>
+    <rect x="838" y="140" width="98" height="32" rx="13" fill="#ffffff" stroke="#d2d2d7"/>
+    <text x="887" y="161" font-size="15" fill="#1d1d1f" text-anchor="middle">转为草稿</text>
+    <rect x="944" y="140" width="76" height="32" rx="13" fill="#0071e3"/>
+    <text x="982" y="161" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">评论</text>
+    <rect x="1028" y="140" width="70" height="32" rx="13" fill="rgba(0,113,227,0.12)"/>
+    <text x="1063" y="161" font-size="15" font-weight="600" fill="#0071e3" text-anchor="middle">协作中</text>
+    <rect x="1106" y="140" width="62" height="32" rx="13" fill="#ffffff" stroke="#d2d2d7"/>
+    <text x="1137" y="161" font-size="15" fill="#1d1d1f" text-anchor="middle">会话 3</text>
+
+    <!-- 工具栏 40px（全为图标按钮） -->
+    <rect x="348" y="184" width="816" height="40" fill="#ffffff" stroke="#f0f0f0"/>
+    <g fill="#6e6e73" font-size="15" font-weight="600">
+      <text x="364" y="210">B</text><text x="396" y="210" font-style="italic">I</text>
+      <text x="426" y="210">H</text><text x="456" y="210">🔗</text><text x="492" y="210">⌗</text>
+      <text x="524" y="210">≡</text><text x="556" y="210">❝</text><text x="588" y="210">▦</text>
+      <text x="620" y="210">⋯</text>
+    </g>
+    <text x="664" y="210" font-size="15" fill="#0071e3" font-weight="600">⚡ AI</text>
+    <rect x="1006" y="192" width="60" height="24" rx="12" fill="#ffffff" stroke="#d2d2d7"/>
+    <text x="1036" y="209" font-size="14" fill="#1d1d1f" text-anchor="middle">取消</text>
+    <rect x="1074" y="192" width="60" height="24" rx="12" fill="#0071e3"/>
+    <text x="1104" y="209" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">保存</text>
+
+    <!-- 左：Monaco 源码 -->
+    <rect x="348" y="224" width="404" height="380" fill="#ffffff"/>
+    <g font-family="'SF Mono', Menlo, Consolas, monospace" font-size="15" fill="#1d1d1f">
+      <text x="404" y="256" fill="#af52de"># 系统概览</text>
+      <text x="404" y="284">Citebase 采用四层依赖契约：</text>
+      <text x="404" y="312" fill="#6e6e73">API → Service → Repository → Model</text>
+      <text x="404" y="348">请求生命周期见 <tspan fill="#0066cc">docs/layered-</tspan></text>
+      <text x="404" y="372" fill="#0066cc">architecture.md §1.3</text>
+      <text x="404" y="408" fill="#34c759">| 层 | 职责 | 可依赖 |</text>
+      <text x="404" y="432" fill="#34c759">|---|---|---|</text>
+      <text x="404" y="460" fill="#86868b" font-style="italic" opacity="0.55">协同编辑基于 Yjs CRDT，冲突由服务端</text>
+      <text x="404" y="484" fill="#86868b" font-style="italic" opacity="0.55">自动合并，在线状态见会话列表…</text>
+    </g>
+    <text x="404" y="516" font-size="15" fill="#86868b" font-style="italic">按 Tab 接受 · Esc 取消</text>
+    <line x1="392" y1="490" x2="392" y2="510" stroke="#0071e3" stroke-width="1.6"/>
+    <g font-size="13" fill="#d2d2d7">
+      <text x="360" y="256">1</text><text x="360" y="284">2</text><text x="360" y="312">3</text>
+      <text x="360" y="348">4</text><text x="360" y="372">5</text><text x="360" y="408">6</text>
+      <text x="360" y="432">7</text><text x="360" y="460">8</text><text x="360" y="484">9</text>
+    </g>
+    <!-- 5px 分隔手柄 -->
+    <rect x="752" y="224" width="5" height="380" fill="#f0f0f0"/>
+
+    <!-- 右：实时预览 -->
+    <rect x="757" y="224" width="407" height="380" fill="#f5f5f7"/>
+    <rect x="773" y="236" width="76" height="22" rx="11" fill="#ffffff" stroke="#e5e5e5"/>
+    <text x="811" y="251" font-size="13" fill="#6e6e73" text-anchor="middle">实时预览</text>
+    <text x="773" y="296" font-size="26" font-weight="600" fill="#1d1d1f">系统概览</text>
+    <text x="773" y="332" font-size="17" fill="#1d1d1f">Citebase 采用四层依赖契约：</text>
+    <rect x="773" y="346" width="340" height="34" rx="8" fill="#ffffff" stroke="#f0f0f0"/>
+    <text x="787" y="368" font-family="'SF Mono', Menlo, monospace" font-size="15" fill="#1d1d1f">API → Service → Repository → Model</text>
+    <text x="773" y="410" font-size="16" fill="#0066cc" text-decoration="underline">请求生命周期见 AGENTS.md</text>
+    <rect x="773" y="428" width="364" height="72" rx="8" fill="#ffffff" stroke="#f0f0f0"/>
+    <text x="789" y="452" font-size="15" font-weight="600" fill="#1d1d1f">层 · 职责 · 可依赖</text>
+    <line x1="789" y1="462" x2="1121" y2="462" stroke="#f0f0f0"/>
+    <text x="789" y="484" font-size="15" fill="#6e6e73">API  接口与参数校验  Service</text>
+    <rect x="773" y="518" width="364" height="44" rx="8" fill="#e6f2ff"/>
+    <text x="789" y="537" font-size="15" fill="#1d1d1f">💡 协同编辑基于 Yjs CRDT，冲突由服务端</text>
+    <text x="789" y="556" font-size="15" fill="#1d1d1f">自动合并，在线状态见会话列表。</text>
+
+    <!-- 底部 SaveStatusBar -->
+    <line x1="348" y1="612" x2="1164" y2="612" stroke="#f0f0f0"/>
+    <text x="364" y="638" font-size="15" fill="#6e6e73">1,284 字</text>
+    <text x="470" y="638" font-size="15" fill="#34c759">已保存</text>
+    <circle cx="580" cy="633" r="4" fill="#34c759"/>
+    <text x="594" y="638" font-size="15" fill="#6e6e73">协作中 · 3 人协作</text>
+
+    <!-- 右下浮动目录按钮 36px -->
+    <circle cx="1140" cy="576" r="18" fill="#ffffff" stroke="#e5e5e5"/>
+    <g stroke="#6e6e73" stroke-width="1.6">
+      <line x1="1132" y1="570" x2="1148" y2="570"/><line x1="1132" y1="576" x2="1148" y2="576"/><line x1="1132" y1="582" x2="1144" y2="582"/>
+    </g>
+
+    <text x="600" y="694" font-size="15" fill="#86868b" text-anchor="middle">按源码复刻的界面示意图（文档内容为示例数据），非运行截图 · 此路由隐藏全局侧栏</text>
+  </g>
+</svg>

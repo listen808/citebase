@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-label="Citebase">
+  <!-- 品牌标记：摊开的书（知识/Wiki）+ 中心脊上升 + 顶部节点（AI）。
+       与 components/apple/ApBrand.vue 同一套几何；favicon 读不到 CSS 变量，故此处内联 accent 十六进制。 -->
+  <path d="M11.2 12.6 L11.2 19.6 L3.4 17.6 L3.4 9.4 Z" fill="#0071e3"/>
+  <path d="M12.8 12.6 L12.8 19.6 L20.6 17.6 L20.6 9.4 Z" fill="#0071e3"/>
+  <path d="M12 12.6 L12 7.3" stroke="#0071e3" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="12" cy="5" r="2.3" fill="#0071e3"/>
+</svg>

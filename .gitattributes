@@ -1,0 +1,36 @@
+# 统一行尾基线：仓库内容以 LF 存储，检出时按平台转换。
+#
+# 2026-10-06 实测更正：`git add --renormalize .` 在这里是**空操作** —— blob 本来就是 LF，
+# 红的只是 core.autocrlf=true 下这份旧检出（git 只在下次检出时才转换，gofmt 读的却是工作区）。
+# 已经把工作区 189 个 CRLF 文本文件就地转成 LF，`git diff` 为空、没有任何提交产生。
+# 别再照着旧注释提那个"chore: normalize line endings"：它是一个 0 变更的提交，
+# 而 status 那一刻列出的 189 个 M 只是 stat 缓存失效（`git diff --numstat` 一行都没有）。
+* text=auto eol=lf
+
+# 明确文本类型强制 LF（避免编辑器误存 CRLF 导致 Go/TS/SQL 解析异常）
+*.go text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.vue text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+
+# Windows 脚本保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制
+*.exe binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

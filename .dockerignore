@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+web/node_modules/
+
+# Build output (built inside Docker)
+web/dist/
+*.exe
+citebase
+/app/citebase
+dist/
+*.zip
+*.tar.gz
+
+# Data directory (runtime data, not build artifact)
+data/
+
+# Git
+.git/
+.gitignore
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs 不能整体排除：app/server/server.go 空导入了 github.com/listen808/citebase/docs/swagger
+#（Swagger 注解生成的 Go 包），排除后 `go build ./app/server` 一定失败。
+# 因此只排除 Markdown，保留 swagger/ 下的 *.go 与 *.json。
+docs/*.md
+docs/**/*.md
+
+# Environment / secrets
+.env
+.env.*
+configs/config.yaml
+*.jwt_secret
+.encrypt_key
+*.pem
+*.key
+
+# Test files
+*_test.go
+web/tests/
+
+# 非本项目内容 / 本地智能体工作目录
+.trae/
+databases/importtables/
+.codebuddy/
+.codegraph/
+.codeartsdoer/
+.ocr-work/
+.qoder/
+.qoder-cn/
+.qoder-credits/
+.qoderworkcn/
+
+# 日志与临时文件
+*.log
+logs/
+tmp/
+*.tmp
+*~

@@ -1,0 +1,135 @@
+# ---------------------------------------------------------------------------
+# 构建产物
+# ---------------------------------------------------------------------------
+# 后端二进制（Makefile 产出在仓库根，Docker 构建产出在 /app）
+/citebase
+/app/citebase
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# 前端构建与缓存
+/web/dist/
+/web/node_modules/
+/web/.vite/
+/web/*.tsbuildinfo
+node_modules/
+
+# 打包产物
+/*.zip
+/*.tar.gz
+/dist/
+
+
+# ---------------------------------------------------------------------------
+# 运行期数据（索引 / 向量 / 密钥 / 上传件）
+# ---------------------------------------------------------------------------
+/data/
+/internal/**/data/
+!internal/**/data/.gitkeep
+/backups/
+/docs/
+
+# ---------------------------------------------------------------------------
+# 凭据与本机配置 —— 只提交模板，真实值一律不入库
+# ---------------------------------------------------------------------------
+configs/config.yaml
+configs/config - 副本.yaml
+.env
+.env.*
+!.env.example
+*.jwt_secret
+.encrypt_key
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# 测试与质量报告
+# ---------------------------------------------------------------------------
+/coverage/
+/web/coverage/
+/web/test-results/
+/web/playwright-report/
+/web/blob-report/
+/coverage.txt
+*.cover
+*.lcov
+
+# ---------------------------------------------------------------------------
+# 第三方技能包与外部专有数据 —— 非本项目原创，不随仓库分发
+# ---------------------------------------------------------------------------
+/.trae/
+/databases/importtables/
+
+# ---------------------------------------------------------------------------
+# IDE / AI 协作者工作目录
+# ---------------------------------------------------------------------------
+/.idea/
+/.vscode/
+!/.vscode/extensions.json
+/.codebuddy/
+.workbuddy/
+/.codegraph/
+/.codeartsdoer/
+/.ocr-work/
+/.qoder/
+/.qoder-cn/
+/.qoder-credits/
+/.fleet/
+/.zed/
+
+# husky 内部运行时
+/.husky/_/
+
+# ---------------------------------------------------------------------------
+# 日志与临时文件
+# ---------------------------------------------------------------------------
+*.log
+logs/
+tmp/
+*.tmp
+*.swp
+*~
+
+# ---------------------------------------------------------------------------
+# 操作系统垃圾
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# 一致性审计脚本的生成产物
+tools/audit-out/
+
+# 视觉快照产物（web/scripts/visual-snapshot.mjs 输出，勿入库）
+docs/ui-snapshots/
+docs/ui-accept/
+web/.rv-tmp/
+
+# 跨页一致性量测的机读产物（web/scripts/check-ui-consistency.mjs 输出，人读表在 stdout）
+web/ui-consistency.json
+web/layout-geometry.json
+web/page-detail.json
+web/element-tokens.json
+
+# 术语巡检的机读产物（每次跑都会变，人读表 docs/audits/glossary-audit.md 入库留档）
+docs/audits/glossary-audit.json
+web/long-content.json
+web/motion-consistency.json
+web/visual-signature.json
+web/box-census.json
+web/page-parity.json
+web/apple-design.json
+web/gesture-dynamics.json
+web/runtime-errors.json
+
+# 设计套件（product-design skills）的会话中间产物，不是仓库内容
+spark-output/
+
+# 割接/备份用的整库导出（含真实用户数据与口令散列，绝不入库）
+databases/dump-citebase-*.sql

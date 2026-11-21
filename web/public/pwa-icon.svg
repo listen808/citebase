@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Citebase">
+  <!-- 应用/PWA 图标：accent 圆角瓦片 + 白色品牌标记（摊开的书 + 上升脊 + 节点）。
+       几何同 components/apple/ApBrand.vue；标记缩放到 maskable 安全区内（约 60%）。 -->
+  <rect width="512" height="512" rx="112" fill="#0071e3"/>
+  <g transform="translate(101,101) scale(12.92)">
+    <path d="M11.2 12.6 L11.2 19.6 L3.4 17.6 L3.4 9.4 Z" fill="#ffffff"/>
+    <path d="M12.8 12.6 L12.8 19.6 L20.6 17.6 L20.6 9.4 Z" fill="#ffffff"/>
+    <path d="M12 12.6 L12 7.3" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>
+    <circle cx="12" cy="5" r="2.3" fill="#ffffff"/>
+  </g>
+</svg>
