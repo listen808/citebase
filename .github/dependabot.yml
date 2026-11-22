@@ -1,3 +1,8 @@
+# 例行版本更新关掉（open-pull-requests-limit: 0），只留两类 PR：
+#   1) github-actions 的 SHA 跟进（低风险，照常每周开）；
+#   2) 代码依赖只走安全更新（dependabot security updates，不受 limit 限制）。
+# 理由：minor 分组也会带出真实类型不兼容（TS / vue-tsc / poi），开出红 PR 等于制造噪声；
+# 升级要有绿 PR 才开，人工评估后再合。
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -16,7 +21,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     groups:
       go:
         patterns: ["*"]
@@ -28,7 +33,7 @@ updates:
     directory: "/web"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 0
     groups:
       web:
         patterns: ["*"]
