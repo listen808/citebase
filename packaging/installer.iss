@@ -1,8 +1,8 @@
-﻿; build/installer.iss — Citebase Windows 安装器
+﻿; packaging/installer.iss — Citebase Windows 安装器
 ;
 ; 编译期需要 Inno Setup 6（产物 Setup.exe 本身无任何运行时依赖）。
 ; 由 scripts\package-windows.bat 的 [7/7] 步骤调用：
-;   "%ISCC%" /DStageDir=dist\citebase /DBuildVersion=2.0.0 /Odist\Citebase-Setup-2.0.0.exe build\installer.iss
+;   "%ISCC%" /DStageDir=dist\citebase /DBuildVersion=2.0.0 /Odist\Citebase-Setup-2.0.0.exe packaging\installer.iss
 ;
 ; 本文件必须存为 UTF-8 with BOM；[Code] 段必须全 ASCII —— Inno 的 Pascal Script
 ; 编译器对这一段的非 ASCII 文本解析不可靠（中文会让它报 Unknown identifier /

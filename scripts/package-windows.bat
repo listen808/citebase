@@ -146,11 +146,11 @@ copy /Y "%ROOT_DIR%configs\config_sample.yaml" "%OUTPUT_DIR%\configs\config.yaml
 echo   Config template [OK]
 :: DATABASE-SETUP.sql is a template shipped with the package (it lives in build\, tracked by git; the bat only copies it verbatim).
 :: A missing file must be visible - the old unconditional copy + echo [OK] reported success even when the file was absent.
-if exist "%ROOT_DIR%build\DATABASE-SETUP.sql" (
-    copy /Y "%ROOT_DIR%build\DATABASE-SETUP.sql" "%OUTPUT_DIR%\" >nul 2>&1
+if exist "%ROOT_DIR%packaging\DATABASE-SETUP.sql" (
+    copy /Y "%ROOT_DIR%packaging\DATABASE-SETUP.sql" "%OUTPUT_DIR%\" >nul 2>&1
     echo   Database setup notes [OK]
 ) else (
-    echo [WARN] build\DATABASE-SETUP.sql missing, package has no DB setup guide
+    echo [WARN] packaging\DATABASE-SETUP.sql missing, package has no DB setup guide
 )
 
 :: The Chinese segmenter dict must ship in the package: gse's no-arg LoadDict() resolves the BUILD machine's module cache absolute path,
@@ -216,7 +216,7 @@ echo   ISCC: %ISCC_EXE%
 echo   Version: %APP_VERSION%
 pushd "%ROOT_DIR%"
 ::: The /O switch of ISCC takes the output DIRECTORY; the Setup.exe file name comes from OutputBaseFilename in [Setup].
-"%ISCC_EXE%" /DStageDir="%OUTPUT_DIR%" /DBuildVersion=%APP_VERSION% /O"%ROOT_DIR%" build\installer.iss
+"%ISCC_EXE%" /DStageDir="%OUTPUT_DIR%" /DBuildVersion=%APP_VERSION% /O"%ROOT_DIR%" packaging\installer.iss
 set "ISCC_RC=%errorlevel%"
 popd
 if not "%ISCC_RC%"=="0" goto :installer_failed
