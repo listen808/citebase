@@ -1,0 +1,23 @@
+name: sbom
+
+# SBOM 与发布物绑定：CRA 的报告义务 2026-09 已生效，组件清单不能再靠手写。
+# 这里只产 SPDX JSON 并作为构建产物上传；正式发布时用 `gh release upload` 附到 release。
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: SPDX · syft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          format: spdx-json
+          artifact-name: sbom.spdx.json
+          path: .

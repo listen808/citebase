@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "测试夹具里的假密钥（不是真凭据）"
+paths = [
+  '''internal/utils/mask_test\.go''',
+  '''tools/repocheck/history_secret_test\.go''',
+]
