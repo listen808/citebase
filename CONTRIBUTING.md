@@ -26,7 +26,7 @@ the gate fleet in [`docs/gates/`](docs/gates), and the dated "why" in
 
 ## What has to be green
 
-Run the gate that matches what you touched — the pre-commit hook only covers a subset.
+Run the gate that matches what you touched — CI runs a subset, and nothing runs at commit time.
 
 | You changed | Run |
 |---|---|
@@ -40,9 +40,11 @@ Run the gate that matches what you touched — the pre-commit hook only covers a
 | `.github/` or `SECURITY.md` | `go test ./tools/repocheck/ -count=1` |
 | Handlers or OpenAPI annotations | `make swagger` (CI re-runs it and diffs `docs/swagger`) |
 
-The pre-commit hook (`.husky/pre-commit`) runs ESLint → the token gate → type-check → vitest. It
-does **not** run the other four style gates, doctrine checks, or any browser inspector.
-`HUSKY=0 git commit …` skips a single run; please don't use it to skip a failing gate.
+CI (`.github/workflows/ci.yml`) runs `gofmt`/`go build`/`go vet`/`go test`, the doc-link check, and
+`npm run ci` for the web side. It does **not** run the four extra style gates, doctrine checks, or any
+browser inspector — those stay manual. There is no pre-commit hook in this tree: the husky dependency and
+`prepare` script are in `web/package.json`, but the `.husky/` directory was never committed, so nothing
+runs when you commit. Treat "committed" as "unverified" and run the table above before you push.
 
 ## The one rule that matters most: prove the check can fail
 

@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Go 后端 · gofmt / build / vet / test / 文档链接
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt（必须零输出）
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "$out"; exit 1; fi
+
+      - run: go build ./...
+
+      - run: go vet ./internal/... ./app/... ./tools/...
+
+      - run: go test ./internal/... ./tools/repocheck/... -count=1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 文档相对链接
+        run: node tools/validate-doc-links.mjs
+
+  web:
+    name: 前端 · lint / 类型 / 样式门禁 / vitest / build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # prepare 脚本会去装 husky 钩子，CI 里不需要，也会因 .husky 目录缺失而报错
+      - run: npm ci --ignore-scripts
+
+      - run: npm run ci

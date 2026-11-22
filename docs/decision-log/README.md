@@ -49,3 +49,4 @@
 | 2026-10-06 | [行尾与编码](2026-10-06-line-endings.md) | 仓库 blob 本来就是 LF；`renormalize` 是空操作，别再造 0 变更的提交 |
 | 2026-10-07 | [CI 与模块路径](2026-10-07-ci-and-module-path.md) | 模块路径随改名迁到 `github.com/listen808/citebase`；CI 从未在这个远端触发，强制靠本地命令 |
 | 2026-10-07 | [改名范围](2026-10-07-rename-scope.md) | AIWiki → Citebase：哪些改了、哪些**故意**没改、为什么 |
+| 2026-11-22 | [CI 落地与钩子取舍](2026-11-22-ci-and-hooks.md) | workflow 入库；不补提交钩子，L1 改由"推送即触发 CI + 手工跑表"承担 |

@@ -84,14 +84,19 @@ cd web && npm run check:style
 
 ## 5. 提交时到底跑了什么
 
-有钩子时，`.husky/pre-commit` 只跑：ESLint（error 级）→ `check-style-tokens` → `type-check` → `vitest`。也就是说：
+**本仓库目前没有启用的提交钩子**：`.husky/` 不在库内（`web/package.json` 里的 husky/lint-staged 依赖与
+`prepare` 脚本都在，但钩子文件没有随之入库）。所以提交时什么都不跑。
 
-- 主题契约、设计教条、对比度、玻璃普查、布局契约**都不在提交时跑**；
-- 浏览器巡检一道都不跑。
+- 主题契约、设计教条、对比度、玻璃普查、布局契约在 CI 里跑（`npm run ci` 里的 `check:style`）；
+- 浏览器巡检一道都不在 CI 里跑，属于人工门禁。
 
-所以"提交成功"不等于"门禁全绿"。改前端后至少手动 `npm run check:style`；`HUSKY=0 git commit` 只能用来跳过单次误报，不要用来跳过真失败。
+所以"提交成功"不等于"门禁全绿"。改前端后至少手动 `npm run check:style`；推送后看
+`.github/workflows/ci.yml` 的结果。
 
-> 当前这份检出里没有 `.husky/` 与 `.github/` 目录（`.gitignore` 只忽略 `/.husky/_/`）。CI 从未在这个远端触发、钩子文件也不在库内的历史原因见 [../decision-log/2026-10-07-ci-and-module-path.md](../decision-log/2026-10-07-ci-and-module-path.md)。在没有钩子的机器上，`make ci` 与 `npm run ci` 是唯一强制。
+> 2026-11-22 起 `.github/workflows/ci.yml` 已在库内（Go 侧 gofmt/build/vet/test + 文档链接，前端 `npm run ci`），
+> 但**尚未在远端触发过第一次**。历史原因（此前 `.github/` 只有 issue 模板、钩子不在树内）见
+> [../decision-log/2026-10-07-ci-and-module-path.md](../decision-log/2026-10-07-ci-and-module-path.md)，
+> 本次补上的取舍见 [../decision-log/2026-11-22-ci-and-hooks.md](../decision-log/2026-11-22-ci-and-hooks.md)。
 
 ## 6. 写门禁的唯一要求：证明它会红
 
