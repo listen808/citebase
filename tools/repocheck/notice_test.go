@@ -32,6 +32,12 @@ type noticeRow struct {
 	name string // go 是 module@version，npm 是包名
 }
 
+// NOTICE 的声明对象是 Windows 安装包（发布物），清单口径与生成器 tools/gen-notice.mjs 保持一致。
+const (
+	noticeGOOS   = "windows"
+	noticeGOARCH = "amd64"
+)
+
 func TestNoticeCoversBuildList(t *testing.T) {
 	root := filepath.Join("..", "..")
 	raw, err := os.ReadFile(filepath.Join(root, "NOTICE.md"))
@@ -111,6 +117,11 @@ func buildList(t *testing.T, root string) (goMods, npmDeps []string) {
 	// go list 的 ./... 按进程工作目录解析，而测试的工作目录是 tools/repocheck —— 不显式给
 	// cmd.Dir 会去 stat tools/repocheck/tools/... 然后报"目录不存在"（实测踩过）。
 	cmd.Dir = root
+	// NOTICE.md 是按 Windows 安装包（唯一对外分发的二进制）的构建清单生成的；
+	// 两个平台真正链接进来的原生依赖并不相同（Windows 走 go-sysconf/numcpus，Linux 走 go-ole/wmi），
+	// 不钉 GOOS 就会在 Linux CI 上拿 Linux 清单去比 Windows 清单，永远对不上。
+	// 生成器 tools/gen-notice.mjs 用同一对常量，两边必须一起改。
+	cmd.Env = append(os.Environ(), "GOOS="+noticeGOOS, "GOARCH="+noticeGOARCH)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go list -deps 失败（contributor 机器上先跑得通 go build）：%v\n%s", err, out)

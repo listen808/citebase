@@ -116,7 +116,7 @@
             <ApIcon v-else name="Hash" :size="14" :color="cv('blue')" />
             <span :style="nodeNameStyle">{{ node.tag_name }}</span>
             <span v-if="statCount(node.tag_name) !== null" :style="countBadgeStyle">{{ statCount(node.tag_name) }}</span>
-            <span v-if="node.parent" :style="aiSubBadgeStyle">父：{{ node.parent }}</span>
+            <span v-if="node.parent" :style="aiSubBadgeStyle">{{ $t('uiCopy.parentPrefix', { p1: node.parent }) }}</span>
             <div :style="[actionGroupStyle, { marginLeft: 'auto' }]">
               <ApButton variant="ghost" size="mini" @click="selectTag(node.tag_name)">{{ $t('ws.detail') }}</ApButton>
               <ApButton
@@ -167,8 +167,8 @@
             </div>
             <p v-if="parentItem" :style="noteStyle">
               {{ parentItem.parent_tag }}
-              <span :style="aiSubBadgeStyle">关系 ID {{ parentItem.id }}</span>
-              <span :style="aiSubBadgeStyle">{{ parentItem.space_id === 0 ? '全局' : '空间 #' + parentItem.space_id }}</span>
+              <span :style="aiSubBadgeStyle">{{ $t('uiCopy.relationId', { p1: parentItem.id }) }}</span>
+              <span :style="aiSubBadgeStyle">{{ parentItem.space_id === 0 ? $t('uiCopy.globalScope') : $t('uiCopy.spaceId', { p1: parentItem.space_id }) }}</span>
             </p>
             <p v-else-if="parentLoading" :style="loadingStyle">{{ $t('ws.k269') }}</p>
             <p v-else :style="noteStyle">{{ $t('ws.k270') }}</p>
@@ -176,7 +176,7 @@
 
           <div :style="sectionStyle">
             <div :style="headerRowStyle">
-              <span :style="sectionTitleStyle">子标签（{{ children.length }}）</span>
+              <span :style="sectionTitleStyle">{{ $t('uiCopy.childTags', { p1: children.length }) }}</span>
               <ApButton variant="ghost" size="mini" :loading="childrenLoading" @click="loadChildren">{{ $t('ws.refresh') }}</ApButton>
             </div>
             <div v-if="children.length" :style="tagChipRowStyle">
@@ -190,13 +190,13 @@
 
           <div :style="sectionStyle">
             <div :style="headerRowStyle">
-              <span :style="sectionTitleStyle">使用该标签的文档（{{ docs.length }}）</span>
+              <span :style="sectionTitleStyle">{{ $t('uiCopy.taggedDocs', { p1: docs.length }) }}</span>
               <ApButton variant="ghost" size="mini" :loading="docsLoading" @click="loadDocs">{{ $t('ws.refresh') }}</ApButton>
             </div>
             <div v-if="docs.length" :style="listStyle(AppleSpace.sm)">
               <div v-for="doc in docs" :key="doc.id" :style="statusRowStyle">
                 <ApIcon name="FileText" :size="14" :color="cv('blue')" />
-                <span :style="nodeNameStyle">{{ doc.name || ('文档 #' + doc.id) }}</span>
+                <span :style="nodeNameStyle">{{ doc.name || $t('uiCopy.docFallback', { p1: doc.id }) }}</span>
                 <span :style="aiSubBadgeStyle">{{ doc.space_id ? $t('vWorkspaceUi.k38') + doc.space_id : $t('vWorkspaceUi.k39') }}</span>
                 <div :style="[actionGroupStyle, { marginLeft: 'auto' }]">
                   <ApButton variant="ghost" size="mini" :disabled="!doc.space_id" @click="openDocument(doc)">{{ $t('ws.k138') }}</ApButton>
@@ -216,7 +216,7 @@
           </div>
 
           <p :style="noteStyle">
-            后端只返回文档 ID，标题与空间需逐个调用文档详情接口解析（最多解析 {{ DOC_RESOLVE_LIMIT }} 篇）。
+            {{ $t('uiCopy.resolveNote', { p1: DOC_RESOLVE_LIMIT }) }}
           </p>
         </template>
       </ApCard>

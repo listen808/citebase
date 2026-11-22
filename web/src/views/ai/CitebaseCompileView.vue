@@ -184,7 +184,7 @@
         <template #header>
           <div :style="aiSubSectionHeaderStyle">
             <ApIcon name="AlertTriangle" :size="18" :color="cv('red')" />
-            <span :style="aiSubSectionTitleStyle">体检问题（{{ lintIssues.length }}）</span>
+            <span :style="aiSubSectionTitleStyle">{{ $t('uiCopy.lintIssues', { p1: lintIssues.length }) }}</span>
           </div>
         </template>
         <ApEmpty v-if="lintIssues.length === 0" icon="Check" :title="$t('vAiUi.k164')" :description="$t('vAiUi.k170')" />
@@ -205,7 +205,7 @@
       <template #header>
         <div :style="aiSubSectionHeaderStyle">
           <ApIcon name="GitBranch" :size="18" :color="cv('purple')" />
-          <span :style="aiSubSectionTitleStyle">相关页面 · {{ relatedSlug }}</span>
+          <span :style="aiSubSectionTitleStyle">{{ $t('uiCopy.relatedPages', { p1: relatedSlug }) }}</span>
         </div>
       </template>
       <div :style="listStyle">

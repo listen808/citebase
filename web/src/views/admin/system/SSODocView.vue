@@ -85,11 +85,11 @@
 
           <h3 id="http-php-example" :style="subheadingStyle">{{ $t('adminSys.k255') }}</h3>
           <div :style="codeBlockStyle">
-            <pre :style="preStyle">// SSO 回调处理示例 (callback.php)
+            <pre :style="preStyle">{{ $t('uiCopy.ssoSampleRoot') }}
 &lt;?php
 $code = $_GET['code'] ?? '';
 if (!$code) {
-    // 重定向到授权页面
+    {{ $t('uiCopy.ssoSampleRedirect') }}
     $authUrl = 'https://sso.example.com/authorize?' . http_build_query([
         'client_id' => 'your-client-id',
         'redirect_uri' => 'https://your-app.com/callback',
@@ -100,7 +100,7 @@ if (!$code) {
     exit;
 }
 
-// 用授权码换取 token
+{{ $t('uiCopy.ssoSampleToken') }}
 $ch = curl_init('https://sso.example.com/token');
 curl_setopt($ch, CURLOPT_POST, 1);
 curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([

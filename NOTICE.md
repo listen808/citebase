@@ -10,7 +10,7 @@ node tools/gen-notice.mjs   # rewrites NOTICE.md from the current build list
 go test ./tools/repocheck/ -run TestNoticeCoversBuildList   # fails if it drifts
 ```
 
-Measured against HEAD on 2026-10-19:
+Measured against HEAD on 2026-11-22:
 102 Go modules actually linked into the binary (not the `219` entries in the
 module graph), and the direct npm dependencies of the web app.
 

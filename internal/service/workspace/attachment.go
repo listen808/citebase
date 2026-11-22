@@ -265,7 +265,7 @@ func (s *AttachmentService) CopyAttachmentData(att *workspacemodel.Attachment, w
 // ReadAttachmentBytes 按存储路径（aw_attachment.path 形式：images/... 或 attachment/...）读附件全部字节。
 // db 块表优先，磁盘兜底；供导出内联（HTML/Markdown/Word base64）使用。
 func (s *AttachmentService) ReadAttachmentBytes(storedPath string) ([]byte, error) {
-	storedPath = strings.SplitN(filepath.ToSlash(strings.TrimSpace(storedPath)), "?", 2)[0]
+	storedPath = strings.SplitN(normalizeStoredPath(storedPath), "?", 2)[0]
 	storedPath = strings.TrimPrefix(storedPath, "/")
 	if storedPath == "" || strings.Contains(storedPath, "..") {
 		return nil, ErrAttachmentNotFound
@@ -428,11 +428,19 @@ func GetAttachmentFilenameForDownload(name string) string {
 	return url.PathEscape(name)
 }
 
+// normalizeStoredPath 统一 aw_attachment.path 里的分隔符。
+// 历史数据中存在 `attachment\4\486\a.png` 这种反斜杠形态（Windows 上传时写入），
+// 而 filepath.ToSlash 只在 Windows 上把 `\` 换成 `/`，Linux 上原样返回 ——
+// 同一个库在两种系统上会解析到不同目录，所以这里显式替换，与宿主平台无关。
+func normalizeStoredPath(p string) string {
+	return strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
+}
+
 // ResolveAttachmentPath 把 aw_attachment.path 解析为磁盘路径。
 // 库中存在两种历史前缀：images/（旧图片目录）与 attachment/（统一附件目录），
 // 下载/删除/导出此前各自按单一目录拼路径，导致旧图片与图片类附件找不到文件。
 func ResolveAttachmentPath(storedPath string) string {
-	storedPath = filepath.ToSlash(strings.TrimSpace(storedPath))
+	storedPath = normalizeStoredPath(storedPath)
 	if storedPath == "" || strings.Contains(storedPath, "..") {
 		return ""
 	}

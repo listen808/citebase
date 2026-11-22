@@ -63,7 +63,7 @@
     <ApConfirmModal
       v-model="showRemoveConfirm"
       :title="$t('aiView2.k27')"
-      :message="`确定移除 MCP 服务器「${pendingRemoveName}」？`"
+      :message="$t('uiCopy.confirmRemoveMcp', { p1: pendingRemoveName })"
       :confirm-text="$t('aiView2.k28')"
       type="danger"
       @confirm="confirmRemove"

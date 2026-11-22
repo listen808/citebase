@@ -79,8 +79,20 @@ function readLicense(dir) {
   return { file: hit, kind: classify(text) };
 }
 
+// NOTICE 声明的是 Windows 安装包（唯一对外分发的二进制）里链接进来的模块，
+// 所以 go list 必须钉住 GOOS/GOARCH：两个平台链接的原生依赖不同，
+// 不钉就会让 Windows 上生成的清单和 Linux CI 上重算的清单永远对不上。
+// 判据那头 tools/repocheck/notice_test.go 用同一对常量，两边必须一起改。
+const NOTICE_GOOS = 'windows';
+const NOTICE_GOARCH = 'amd64';
+
 function go(cmd, args) {
-  return execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 });
+  return execFileSync(cmd, args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 << 20,
+    env: { ...process.env, GOOS: NOTICE_GOOS, GOARCH: NOTICE_GOARCH },
+  });
 }
 
 // 1) 链接进产物的模块清单

@@ -36,3 +36,18 @@ gofmt、vet、40 包测试、eslint、vue-tsc、7 道样式门禁、i18n 审计�
 
 首次 push 后看一次运行结果；若 web job 因 `check:style` 里的渲染类脚本失败，就把这类脚本
 拆成独立的 nightly job，主 job 只保留静态部分。钩子是否补，等 CI 稳定后再定。
+
+## 补记（同日，CI 首轮运行之后）
+
+首轮 `ci` 在 ubuntu 上红了三处，处理原则是"判据不放松，只把口径钉死"：
+
+1. **附件路径跨平台**：库里存在 `attachment\4\486\a.png` 这种反斜杠形态（Windows 上传时写入），
+   而 `filepath.ToSlash` 只在 Windows 上转换、Linux 上原样返回 —— 同一个库两种解析结果。
+   改为显式 `\`→`/` 归一化（`normalizeStoredPath`），宿主机平台不再参与判定。
+2. **NOTICE 清单口径**：NOTICE 声明的是 Windows 安装包（唯一对外分发的二进制）链接进来的模块，
+   而测试在现场用本机 GOOS 重算 `go list -deps`：Windows 走 go-sysconf/numcpus、Linux 走 go-ole/wmi，
+   天然对不上。生成器 `tools/gen-notice.mjs` 与判据 `tools/repocheck/notice_test.go`
+   同时钉 `GOOS=windows GOARCH=amd64`，两边共用一对常量，改口径必须一起改。
+3. **模板裸文案 32 处**：AI 工作流、标签管理、MCP 等页面把中文直接写在模板里，被棘轮门禁点名。
+   按门禁的判据补进语言包 `uiCopy.*`（zh/en 同步各加 35 键），而不是把 32 处补登记进基线 ——
+   后者等于放宽门禁，英文界面照样漏中文，只是不再有人知道。

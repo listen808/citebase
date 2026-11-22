@@ -74,7 +74,7 @@
         v-if="message.clarify?.options?.length"
         :style="clarifyOptionsStyle"
         role="group"
-        :aria-label="'澄清选项'"
+        :aria-label="$t('uiCopy.clarifyOptions')"
       >
         <ApButton
           v-for="opt in message.clarify.options"
@@ -106,7 +106,7 @@
       <div v-if="false && message.reasoningChain?.length" :style="chainStyle">
         <div :style="chainHeaderStyle" @click="showChain = !showChain">
           <ApIcon name="Brain" :size="14" />
-          <span>思考过程 · {{ message.reasoningChain!.length }} 步</span>
+          <span>{{ $t('uiCopy.reasoningSteps', { p1: message.reasoningChain!.length }) }}</span>
           <ApIcon name="ChevronRight" :size="12" :style="{ transform: showChain ? 'rotate(90deg)' : 'none', transition: 'transform var(--apple-dur-fast)' }" />
         </div>
         <div v-if="showChain" :style="chainBodyStyle">

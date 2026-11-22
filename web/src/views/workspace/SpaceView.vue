@@ -229,7 +229,7 @@
     <ApConfirmModal
       v-model="showSpaceExportConfirm"
       :title="$t('ws.k20')"
-      :message="`确定导出整个空间「${pendingExportSpaceName}」的内容？`"
+      :message="$t('uiCopy.confirmExportSpace', { p1: pendingExportSpaceName })"
       :confirm-text="$t('ws.export')"
       @confirm="confirmSpaceExport"
     />

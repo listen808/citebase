@@ -38,7 +38,7 @@
             <ApIcon name="Plus" :size="16" /> {{ $t('vAiUi.k84') }}
           </ApButton>
           <ApButton variant="secondary" size="small" @click="openGenerateModal">
-            <ApIcon name="Wand" :size="16" /> AI 生成
+            <ApIcon name="Wand" :size="16" /> {{ $t('uiCopy.aiGenerate') }}
           </ApButton>
         </div>
       </div>
@@ -57,7 +57,7 @@
             <div :style="badgeRowStyle">
               <span :style="typeBadgeStyle(wf.type)">{{ typeLabel(wf.type) }}</span>
               <span :style="nodeBadgeStyle">{{ (wf.nodes?.length || 0) }} {{ $t('vAiUi.k102') }}</span>
-              <span :style="statusBadgeStyle(wf.active)">{{ wf.active !== false ? '运行中' : $t('vAiUi.k100') }}</span>
+              <span :style="statusBadgeStyle(wf.active)">{{ wf.active !== false ? $t('uiCopy.running') : $t('vAiUi.k100') }}</span>
             </div>
           </div>
           <div :style="metaStyle">
@@ -79,7 +79,7 @@
             </ApButton>
             <ApButton variant="secondary" size="small" :loading="toggleLoading[wf.id]" :disabled="executeLoading[wf.id]" @click="handleToggle(wf.id, wf.active === false)">
               <ApIcon v-if="!toggleLoading[wf.id]" :name="wf.active !== false ? 'Pause' : 'Play'" :size="16" />
-              {{ wf.active !== false ? '暂停' : $t('vAiUi.enable') }}
+              {{ wf.active !== false ? $t('uiCopy.pause') : $t('vAiUi.enable') }}
             </ApButton>
             <!-- 列表行删除走 ghost+红图标（与权限树同档）：实心 danger 成排出现是噪声（审查 §四.6），确认弹窗里再上实心红 -->
             <ApButton variant="ghost" size="small" @click="confirmDelete(wf)">
@@ -136,21 +136,21 @@
     </ApModal>
 
     <!-- W6：AI 生成工作流（草稿 → 预览 → 启用/删除） -->
-    <ApModal v-model="showGenerateModal" :title="'AI 生成工作流'" size="medium">
+    <ApModal v-model="showGenerateModal" :title="$t('uiCopy.aiGenerateTitle')" size="medium">
       <!-- 生成前：输入描述 -->
       <div v-if="!generatedWF">
         <div :style="formGroupStyle">
           <ApTextarea
             v-model="genDescription"
             :rows="3"
-            label="描述工作流"
-            placeholder="例如：先检索知识库中的产品文档，再让 LLM 总结要点并翻译成英文，最后输出。"
+            :label="$t('uiCopy.describeWorkflow')"
+            :placeholder="$t('uiCopy.describePlaceholder')"
           />
         </div>
         <div :style="{ ...metaStyle, marginBottom: 0 }">
           <ApIcon name="Info" :size="14" :color="cv('text-tertiary')" />
           <span :style="{ fontSize: AppleType.legalMeta.size, color: cv('text-tertiary') }">
-            生成结果为草稿（未启用），请在下方预览确认无误后手动启用。
+            {{ $t('uiCopy.draftHint') }}
           </span>
         </div>
       </div>
@@ -165,7 +165,7 @@
         </div>
         <div :style="formGroupStyle">
           <div :style="{ fontSize: AppleType.legalMeta.size, color: cv('text-secondary'), marginBottom: AppleSpace.xs }">
-            节点（{{ (generatedWF.nodes || []).length }}）
+            {{ $t('uiCopy.nodeCount', { p1: (generatedWF.nodes || []).length }) }}
           </div>
           <div v-for="(node, idx) in (generatedWF.nodes || [])" :key="node.id" :style="genNodeRowStyle">
             <span :style="genNodeIndexStyle">{{ idx + 1 }}</span>
@@ -173,12 +173,12 @@
             <span :style="genNodeNameStyle">{{ node.name || node.id }}</span>
             <span v-if="nodeConfigSummary(node)" :style="genNodeConfigStyle">{{ nodeConfigSummary(node) }}</span>
           </div>
-          <div v-if="(generatedWF.nodes || []).length === 0" :style="{ fontSize: AppleType.legalMeta.size, color: cv('text-tertiary') }">无节点</div>
+          <div v-if="(generatedWF.nodes || []).length === 0" :style="{ fontSize: AppleType.legalMeta.size, color: cv('text-tertiary') }">{{ $t('uiCopy.noNodes') }}</div>
         </div>
         <div :style="{ ...metaStyle, marginBottom: 0 }">
           <ApIcon name="Info" :size="14" :color="cv('orange')" />
           <span :style="{ fontSize: AppleType.legalMeta.size, color: cv('orange') }">
-            该工作流当前为草稿（未启用）。启用后将按上方节点顺序执行。
+            {{ $t('uiCopy.draftNotice') }}
           </span>
         </div>
       </div>
@@ -186,16 +186,16 @@
         <template v-if="!generatedWF">
           <ApButton variant="secondary" size="small" @click="showGenerateModal = false">{{ $t('vAiUi.cancel') }}</ApButton>
           <ApButton variant="primary" size="small" :loading="generating" :disabled="!genDescription.trim()" @click="handleGenerate">
-            <ApIcon v-if="!generating" name="Wand" :size="16" /> 生成
+            <ApIcon v-if="!generating" name="Wand" :size="16" /> {{ $t('uiCopy.generate') }}
           </ApButton>
         </template>
         <template v-else>
-          <ApButton variant="ghost" size="small" @click="showGenerateModal = false">关闭</ApButton>
+          <ApButton variant="ghost" size="small" @click="showGenerateModal = false">{{ $t('uiCopy.close') }}</ApButton>
           <ApButton variant="secondary" size="small" :loading="genDeleteLoading" @click="handleGenerateDelete">
-            <ApIcon name="Trash2" :size="16" :color="cv('red')" /> 删除
+            <ApIcon name="Trash2" :size="16" :color="cv('red')" /> {{ $t('uiCopy.delete') }}
           </ApButton>
           <ApButton variant="primary" size="small" :loading="genEnableLoading" @click="handleGenerateEnable">
-            <ApIcon v-if="!genEnableLoading" name="Play" :size="16" /> 启用
+            <ApIcon v-if="!genEnableLoading" name="Play" :size="16" /> {{ $t('uiCopy.enable') }}
           </ApButton>
         </template>
       </template>

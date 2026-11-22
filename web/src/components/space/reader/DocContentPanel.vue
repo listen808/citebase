@@ -31,10 +31,10 @@
           <div :style="{ display: 'flex', alignItems: 'center', gap: AppleSpace.xs }">
             <slot name="toolbar" />
             <!-- P2-15：阅读宽度切换原先挂在 meta 行末尾，读起来像个孤立的铅笔图标；归到标题右侧的操作组 -->
-            <ApButton variant="ghost" size="mini" icon-only :tooltip="wideMode ? '切换阅读宽度' : '切换全宽'" :aria-label="wideMode ? '切换为全宽阅读' : '切换回常规阅读宽度'" @click="wideMode = !wideMode">
+            <ApButton variant="ghost" size="mini" icon-only :tooltip="wideMode ? $t('uiCopy.toggleReadWidth') : $t('uiCopy.toggleFullWidth')" :aria-label="wideMode ? $t('uiCopy.toggleReadWidth') : $t('uiCopy.toggleFullWidth')" @click="wideMode = !wideMode">
               <ApMorphIcon :icon="wideMode ? Minimize2 : Maximize2" :size="16" />
             </ApButton>
-            <ApButton variant="ghost" size="mini" icon-only :tooltip="showRightPanel ? '关闭属性面板' : '打开属性面板'" :aria-label="showRightPanel ? '关闭属性面板' : '打开属性面板'" @click="showRightPanel = !showRightPanel">
+            <ApButton variant="ghost" size="mini" icon-only :tooltip="showRightPanel ? $t('uiCopy.closePanel') : $t('uiCopy.openPanel')" :aria-label="showRightPanel ? $t('uiCopy.closePanel') : $t('uiCopy.openPanel')" @click="showRightPanel = !showRightPanel">
               <ApMorphIcon :icon="showRightPanel ? ChevronLeft : ChevronRight" :size="16" />
             </ApButton>
           </div>
