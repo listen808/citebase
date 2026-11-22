@@ -1,6 +1,7 @@
 package repocheck
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -122,9 +123,13 @@ func buildList(t *testing.T, root string) (goMods, npmDeps []string) {
 	// 不钉 GOOS 就会在 Linux CI 上拿 Linux 清单去比 Windows 清单，永远对不上。
 	// 生成器 tools/gen-notice.mjs 用同一对常量，两边必须一起改。
 	cmd.Env = append(os.Environ(), "GOOS="+noticeGOOS, "GOARCH="+noticeGOARCH)
-	out, err := cmd.CombinedOutput()
+	// 只解析 stdout：模块缓存是冷的时候，go list 会往 stderr 打 "@downloading …"，
+	// CombinedOutput 把两股流混在一起，这些行会被当成模块行，两条平台专属依赖就会"消失"。
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("go list -deps 失败（contributor 机器上先跑得通 go build）：%v\n%s", err, out)
+		t.Fatalf("go list -deps 失败（contributor 机器上先跑得通 go build）：%v\n%s", err, stderr.String())
 	}
 	seen := map[string]bool{}
 	for _, line := range strings.Split(string(out), "\n") {
