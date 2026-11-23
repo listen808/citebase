@@ -40,6 +40,15 @@ func (r *WikiPinRepository) ListBySpace(spaceID int, status string) ([]*knowledg
 	return pins, err
 }
 
+// FindByID 按主键取 pin（resolve 前需要知道它属于哪个空间做权限校验）。
+func (r *WikiPinRepository) FindByID(id int) (*knowledgemodel.WikiPin, error) {
+	var pin knowledgemodel.WikiPin
+	if err := r.db.Where("id = ?", id).First(&pin).Error; err != nil {
+		return nil, err
+	}
+	return &pin, nil
+}
+
 func (r *WikiPinRepository) UpdateStatus(id int, status string) error {
 	return r.db.Model(&knowledgemodel.WikiPin{}).Where("id = ?", id).
 		Updates(map[string]interface{}{"status": status, "updated_at": time.Now()}).Error
@@ -69,6 +78,15 @@ func (r *WikiReviewRepository) ListBySpace(spaceID int, status string) ([]*knowl
 	}
 	err := q.Order("id DESC").Find(&items).Error
 	return items, err
+}
+
+// FindByID 按主键取审核项（resolve 前需要知道它属于哪个空间做权限校验）。
+func (r *WikiReviewRepository) FindByID(id int) (*knowledgemodel.WikiReview, error) {
+	var item knowledgemodel.WikiReview
+	if err := r.db.Where("id = ?", id).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
 }
 
 func (r *WikiReviewRepository) Resolve(id int, status string, resolvedBy int) error {

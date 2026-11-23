@@ -13,9 +13,17 @@
         <div :style="fieldRowStyle">
           <div :style="fieldStyle">
             <div :style="labelStyle">{{ $t('vAiUi.k143') }}</div>
-            <ApInput v-model="spaceId" :style="inputStyle" :aria-label="$t('vAiUi.k143')" :placeholder="$t('vAiUi.k158')" />
-            <!-- 非法值不只在提交时拦：写在这里用户才知道为什么按钮点不动 -->
-            <div v-if="spaceIdInvalid" :style="fieldErrorStyle">{{ $t('vAiUi.k144') }}</div>
+            <!-- 空间只能从"我的空间"里选：手填 ID 既容易写错，也绕过了成员校验的正路 -->
+            <ApSelect
+              v-model="selectedSpaceId"
+              :options="spaceOptions"
+              :style="inputStyle"
+              :aria-label="$t('vAiUi.k143')"
+              :placeholder="$t('vAiUi.k158')"
+              :searchable="true"
+              @update:model-value="syncSpaceId"
+            />
+            <div v-if="!spaceOptions.length" :style="hintStyle">{{ $t('vAiUi.wikiSpaceEmpty') }}</div>
           </div>
           <div :style="fieldStyle">
             <div :style="labelStyle">{{ $t('vAiUi.k145') }}</div>
@@ -37,7 +45,7 @@
             size="small"
             :loading="compiling"
             :disabled="!parsedSpaceId || !docIds.trim()"
-            :tooltip="parsedSpaceId ? '' : '请先填写空间 ID'"
+            :tooltip="parsedSpaceId ? '' : $t('vAiUi.wikiSelectSpace')"
             @click="handleCompile"
           >
             <ApIcon name="Hammer" :size="16" /> {{ $t('vAiUi.k148') }}
@@ -51,8 +59,11 @@
         </div>
 
         <div v-if="compileResult" :style="resultBannerStyle">
-          新建 {{ compileResult.created.length }} 页 · 更新 {{ compileResult.updated.length }} 页 ·
-          跳过 {{ compileResult.skipped }} 页（内容未变更）
+          {{ $t('vAiUi.wikiCompileSummary', {
+            p1: compileResult.created.length,
+            p2: compileResult.updated.length,
+            p3: compileResult.skipped,
+          }) }}
         </div>
       </div>
     </ApCard>
@@ -62,7 +73,7 @@
       <template #header>
         <div :style="aiSubSectionHeaderStyle">
           <ApIcon name="Files" :size="18" :color="cv('indigo')" />
-          <span :style="aiSubSectionTitleStyle">编译产物（{{ pages.length }}）</span>
+          <span :style="aiSubSectionTitleStyle">{{ $t('vAiUi.wikiProductTitle', { p1: pages.length }) }}</span>
         </div>
       </template>
 
@@ -270,12 +281,11 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ApSkeleton from '@/components/apple/ApSkeleton.vue'
 
 import { cv, AppleFont, AppleFontWeight, AppleRadius, AppleSpace, AppleType, AppleTransition, AppleGridFloor, AppleZIndex, appleCardGrid, resolvedColor } from '@/utils/core/apple-tokens';
 import { withAlpha } from '@/utils/core/shared';
-import { errorStyle } from '@/styles/component/form-field-styles'
 import {
   aiSubPageStyle,
   aiSubActionRowStyle,
@@ -283,6 +293,9 @@ import {
   aiSubSectionTitleStyle,
 } from '@/styles/ai/ai-page-styles'
 import { useUIStore } from '@/stores/app/ui'
+import { useSpaceStore } from '@/stores/workspace/space'
+import { logger } from '@/utils/logger'
+import type { Space } from '@/types/models'
 import {
   compileWiki,
   listWikiPages,
@@ -303,6 +316,11 @@ import {
 } from '@/api/modules/ai/ai-wiki'
 
 const ui = useUIStore()
+
+const spaceStore = useSpaceStore()
+const spaces = ref<Space[]>([])
+const selectedSpaceId = ref<number | null>(null)
+const spaceOptions = computed(() => spaces.value.map((s) => ({ label: s.name, value: s.id })))
 
 const spaceId = ref('')
 const concurrency = ref('4')
@@ -351,15 +369,39 @@ function parseIds(raw: string): number[] {
     .filter((n) => Number.isFinite(n) && n > 0)
 }
 
-/** 空间 ID 只接受正整数：空、负数、小数、非数字一律算非法（原先会被直接 Number 化发进 API） */
+function syncSpaceId(v: string | number | null) {
+  const n = typeof v === 'number' ? v : Number(v)
+  spaceId.value = Number.isInteger(n) && n > 0 ? String(n) : ''
+  compileResult.value = null
+  pages.value = []
+  hits.value = []
+  related.value = []
+  insights.value = []
+  lintIssues.value = []
+  if (spaceId.value) void loadPages()
+}
+
+onMounted(async () => {
+  try {
+    await spaceStore.loadMySpaces({ page_size: 100 })
+    spaces.value = spaceStore.mySpaces
+    const first = spaces.value[0]
+    if (first && selectedSpaceId.value === null) {
+      selectedSpaceId.value = first.id
+      syncSpaceId(first.id)
+    }
+  } catch (e) {
+    logger.error('Failed to load spaces for wiki compile:', e)
+  }
+})
+
+/** 空间 ID 只接受正整数：空、负数、小数、非数字一律算非法 */
 const parsedSpaceId = computed(() => {
   const raw = spaceId.value.trim()
   if (!raw) return 0
   const n = Number(raw)
   return Number.isInteger(n) && n > 0 ? n : 0
 })
-
-const spaceIdInvalid = computed(() => spaceId.value.trim() !== '' && parsedSpaceId.value === 0)
 
 function currentSpaceId(): number {
   return parsedSpaceId.value
@@ -618,8 +660,6 @@ const inputStyle = {
   fontFamily: AppleFont.text,
   transition: AppleTransition.default,
 }
-
-const fieldErrorStyle = errorStyle()
 
 const hintStyle = {
   fontSize: AppleType.legalMeta.size,

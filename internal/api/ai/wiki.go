@@ -3,7 +3,6 @@ package ai
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -12,56 +11,58 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
-	aimod "github.com/listen808/citebase/internal/ai"
-	"github.com/listen808/citebase/internal/ai/analyzer"
-	"github.com/listen808/citebase/internal/ai/rag/multiagent"
-	"github.com/listen808/citebase/internal/ai/wiki"
-	logx "github.com/listen808/citebase/internal/log"
+	wiki "github.com/listen808/citebase/internal/ai/wiki"
 	"github.com/listen808/citebase/internal/middleware"
-	knowledgemodel "github.com/listen808/citebase/internal/model/knowledge"
 	knowledgerepo "github.com/listen808/citebase/internal/repository/knowledge"
-	workspacerepo "github.com/listen808/citebase/internal/repository/workspace"
 	"github.com/listen808/citebase/internal/response"
+	aisvc "github.com/listen808/citebase/internal/service/ai"
 )
 
 // WikiAPI 知识编译（LLM Wiki）相关接口。
+//
+// 本层只做三件事：参数校验、空间权限收口、响应封套。编译/治理/查询的业务
+// 逻辑在 internal/service/ai/wiki_service.go（api 不再直接持有 repository）。
+//
+// 权限口径与 internal/api/workspace/access.go 一致：读走 CheckSpaceAccess（公开空间放行），
+// 写要求 space 成员（privilege>=1）；超级管理员在 GetUserSpacePrivilege 里直接是 2。
 type WikiAPI struct {
-	pageRepo   *knowledgerepo.WikiPageRepository
-	linkRepo   *knowledgerepo.WikiLinkRepository
-	pinRepo    *knowledgerepo.WikiPinRepository
-	reviewRepo *knowledgerepo.WikiReviewRepository
-	lintRepo   *knowledgerepo.WikiLintRepository
+	svc *aisvc.WikiService
 }
 
 func NewWikiAPI() *WikiAPI {
-	return &WikiAPI{
-		pageRepo:   knowledgerepo.NewWikiPageRepository(),
-		linkRepo:   knowledgerepo.NewWikiLinkRepository(),
-		pinRepo:    knowledgerepo.NewWikiPinRepository(),
-		reviewRepo: knowledgerepo.NewWikiReviewRepository(),
-		lintRepo:   knowledgerepo.NewWikiLintRepository(),
+	return &WikiAPI{svc: aisvc.NewWikiService()}
+}
+
+// wikiFail 把业务层的哨兵错误映射到稳定话术键；未知错误按服务端错误兜底。
+func wikiFail(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, aisvc.ErrWikiAIDisabled):
+		response.ServerErrorKey(c, response.MsgAIServiceDisabled)
+	case errors.Is(err, aisvc.ErrWikiModelUnconfigured):
+		response.ServerErrorKey(c, response.MsgAIModelUnconfigured)
+	case errors.Is(err, aisvc.ErrWikiNoContent):
+		response.BadRequestKey(c, response.MsgWikiNoCompilableContent)
+	case errors.Is(err, aisvc.ErrWikiPageNotFound):
+		response.NotFoundKey(c, response.MsgPageNotFound)
+	case errors.Is(err, aisvc.ErrWikiVersionNotFound):
+		response.BadRequestKey(c, response.MsgPageVersionNotFound)
+	case errors.Is(err, knowledgerepo.ErrStaleDraft):
+		response.BadRequestKey(c, response.MsgPageUpdated)
+	default:
+		response.ServerErrorSafe(c, err)
 	}
 }
 
-// Compile 把指定文档编译为知识页面：Plan（串行去重）→ Generate（并发生成）。
-// 产出的是 draft，需经 Publish 或人工审核后才对查询可见。
+// Compile 把指定文档编译为知识页面（Plan 串行去重 → Generate 并发生成）。
+// @Summary Wiki 知识编译
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/doc_ids/page_type/concurrency"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/compile [post]
 func (api *WikiAPI) Compile(c *gin.Context) {
-	m := aimod.GetModule()
-	if !m.Enabled() {
-		response.ServerErrorKey(c, response.MsgAIServiceDisabled)
-		return
-	}
-	p := m.PrimaryProvider()
-	if p == nil {
-		response.ServerErrorKey(c, response.MsgAIModelUnconfigured)
-		return
-	}
-	if _, ok := middleware.RequireUser(c); !ok {
-		return
-	}
-
 	var req struct {
 		SpaceID     int    `json:"space_id"`
 		DocIDs      []int  `json:"doc_ids"`
@@ -80,163 +81,87 @@ func (api *WikiAPI) Compile(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgDocIDsRequired)
 		return
 	}
-
-	docs, err := analyzer.NewDocReader(0).ReadDocumentsByIDs(req.DocIDs)
+	if !requireWikiMember(c, req.SpaceID) {
+		return
+	}
+	out, err := api.svc.Compile(c.Request.Context(), req.SpaceID, req.DocIDs, req.PageType, req.Concurrency)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
-	if len(docs) == 0 {
-		response.BadRequestKey(c, response.MsgWikiNoCompilableContent)
-		return
-	}
-
-	compiler := wiki.NewCompiler(p)
-	ctx := c.Request.Context()
-
-	// P1 两步摄入：page_type 为空 = Two-Step CoT 模式（默认）——
-	// Step1 对每篇文档做实体/概念分析，映射成 source/concept/entity 候选；
-	// 显式传 page_type 则保持旧的单型编译行为。
-	var candidates []wiki.Candidate
-	if req.PageType == "" {
-		for _, d := range docs {
-			if d == nil || d.Content == "" {
-				continue
-			}
-			candidates = append(candidates,
-				wiki.AnalyzeDocumentToCandidates(ctx, p, d.DocID, d.DocName, d.Content)...)
-		}
-	} else {
-		for _, d := range docs {
-			if d == nil || d.Content == "" {
-				continue
-			}
-			candidates = append(candidates, wiki.Candidate{
-				Name:        d.DocName,
-				PageType:    req.PageType,
-				Title:       d.DocName,
-				Summary:     d.BreadCrumb,
-				SourceDocID: d.DocID,
-				SourceText:  d.Content,
-			})
-		}
-	}
-	if len(candidates) == 0 {
-		response.BadRequestKey(c, response.MsgWikiNoCompilableContent)
-		return
-	}
-
-	plan, err := compiler.Plan(ctx, req.SpaceID, candidates)
-	if err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-	cost, err := compiler.Generate(ctx, req.SpaceID, candidates, req.Concurrency)
-	if err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-
-	// 元页面维护（best-effort，失败不影响编译结果返回）
-	var logLines []string
-	for _, slug := range plan.Created {
-		logLines = append(logLines, "新建页面：`"+slug+"`")
-	}
-	for _, slug := range plan.Updated {
-		logLines = append(logLines, "更新页面：`"+slug+"`（并入溯源）")
-	}
-	if cost != nil && cost.TotalTokens > 0 {
-		logLines = append(logLines, fmt.Sprintf("Token 消耗：prompt %d / completion %d / 共 %d",
-			cost.PromptTokens, cost.CompletionTokens, cost.TotalTokens))
-	}
-	compiler.AppendCompileLog(req.SpaceID, logLines)
-	if err := compiler.RefreshOverview(ctx, req.SpaceID); err != nil {
-		logx.Infof("[WikiAPI] Refresh overview failed for space %d: %v", req.SpaceID, err)
-	}
-
-	// 置信度治理：低置信度页面自动进入审核队列
-	for _, slug := range append(append([]string{}, plan.Created...), plan.Updated...) {
-		compiler.CheckConfidence(ctx, req.SpaceID, slug)
-	}
-
-	// P1 #3: 标记源文档为 raw 层不可变（后续内容变更触发 wiki 重编译）
-	docRepo := workspacerepo.NewDocumentRepository()
-	for _, d := range docs {
-		if d != nil {
-			_ = docRepo.MarkImmutable(d.DocID, true)
-		}
-	}
-
 	response.Success(c, gin.H{
-		"space_id": req.SpaceID,
-		"mode":     twoStepModeLabel(req.PageType),
-		"created":  plan.Created,
-		"updated":  plan.Updated,
-		"skipped":  plan.Skipped,
+		"space_id": out.SpaceID,
+		"mode":     out.Mode,
+		"created":  out.Created,
+		"updated":  out.Updated,
+		"skipped":  out.Skipped,
 	})
 }
 
-// twoStepModeLabel P1：响应里标明本次编译走的模式，便于前端展示与排查。
-func twoStepModeLabel(pageType string) string {
-	if pageType == "" {
-		return "two-step-cot"
-	}
-	return "single-type:" + pageType
-}
-
 // ListPages 列出空间下的知识页面。status 为空则返回全部。
+// @Summary Wiki 页面列表
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param status query string false "页面状态"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages [get]
 func (api *WikiAPI) ListPages(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	pages, err := api.pageRepo.ListBySpace(spaceID, c.Query("status"))
+	pages, err := api.svc.ListPages(spaceID, c.Query("status"))
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"pages": pages, "total": len(pages)})
 }
 
 // GetPage 读取单个页面（含正文）。
+// @Summary Wiki 页面详情
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug} [get]
 func (api *WikiAPI) GetPage(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	page, err := api.pageRepo.FindBySlug(spaceID, slug)
+	page, err := api.svc.GetPage(spaceID, slug)
 	if err != nil {
-		response.NotFoundKey(c, response.MsgPageNotFound)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"page": page})
 }
 
 // Publish 发布草稿。基线版本不匹配时返回冲突，调用方需重新生成草稿（rebase）。
+// @Summary Wiki 页面发布
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Param body body map[string]int true "base_version"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug}/publish [post]
 func (api *WikiAPI) Publish(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
 	var req struct {
 		BaseVersion int `json:"base_version"`
 	}
 	_ = c.ShouldBindJSON(&req)
-
-	m := aimod.GetModule()
-	compiler := wiki.NewCompiler(m.PrimaryProvider())
-	page, err := compiler.Publish(spaceID, slug, req.BaseVersion)
+	page, err := api.svc.Publish(spaceID, slug, req.BaseVersion)
 	if err != nil {
-		if err == knowledgerepo.ErrStaleDraft {
-			response.BadRequestKey(c, response.MsgPageUpdated)
-			return
-		}
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"page": page})
@@ -244,25 +169,37 @@ func (api *WikiAPI) Publish(c *gin.Context) {
 
 // MarkHumanEdited 标记页面含人工确认的内容。
 // provenance 切到 human 后，源文档下架触发的重编译不会自动删除该页知识。
+// @Summary Wiki 页面标记人工编辑
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug}/human-edit [post]
 func (api *WikiAPI) MarkHumanEdited(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
-	if err := api.pageRepo.MarkHumanEdited(spaceID, slug); err != nil {
-		response.ServerErrorSafe(c, err)
+	if err := api.svc.MarkHumanEdited(spaceID, slug); err != nil {
+		wikiFail(c, err)
 		return
 	}
-	response.Success(c, gin.H{"slug": slug, "provenance": knowledgemodel.WikiProvenanceHuman})
+	response.Success(c, gin.H{"slug": slug, "provenance": "human"})
 }
 
 // Search 目录 ∪ 全文 双路召回：先读 Wiki 编译产物，未命中时由调用方回退到 chunk 检索。
+// @Summary Wiki 知识检索
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param body body map[string]interface{} true "question/fulltext_top_k"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/search [post]
 func (api *WikiAPI) Search(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
 	var req struct {
@@ -273,12 +210,9 @@ func (api *WikiAPI) Search(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgQuestionRequired)
 		return
 	}
-
-	m := aimod.GetModule()
-	r := wiki.NewRetriever(m.PrimaryProvider())
-	hits, err := r.Retrieve(c.Request.Context(), spaceID, req.Question, req.FulltextTopK)
+	hits, err := api.svc.Search(c.Request.Context(), spaceID, req.Question, req.FulltextTopK)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"hits": hits, "total": len(hits)})
@@ -286,17 +220,17 @@ func (api *WikiAPI) Search(c *gin.Context) {
 
 // GenerateArticle 大纲 → 逐节写作 → 引用校验 → 润色（STORM 式结构化长文生成）。
 // 引用校验发现问题时如实返回，不静默放过 —— 无来源的章节对用户没有价值。
+// @Summary Wiki 结构化长文生成
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "topic/doc_ids/skip_polish"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/article/generate [post]
 func (api *WikiAPI) GenerateArticle(c *gin.Context) {
-	m := aimod.GetModule()
-	p := m.PrimaryProvider()
-	if p == nil {
-		response.ServerErrorKey(c, response.MsgAIModelUnconfigured)
-		return
-	}
 	if _, ok := middleware.RequireUser(c); !ok {
 		return
 	}
-
 	var req struct {
 		Topic      string `json:"topic"`
 		DocIDs     []int  `json:"doc_ids"`
@@ -306,76 +240,43 @@ func (api *WikiAPI) GenerateArticle(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgTopicRequired)
 		return
 	}
-
-	materials := ""
-	sourceCount := 0
-	if len(req.DocIDs) > 0 {
-		docs, err := analyzer.NewDocReader(0).ReadDocumentsByIDs(req.DocIDs)
-		if err == nil {
-			for _, d := range docs {
-				if d == nil || d.Content == "" {
-					continue
-				}
-				sourceCount++
-				materials += fmt.Sprintf("[%d] %s\n%s\n\n", sourceCount, d.DocName, d.Content)
-			}
-		}
-	}
-
-	compiler := wiki.NewCompiler(p)
-	ctx := c.Request.Context()
-
-	sections, err := compiler.PlanOutline(ctx, req.Topic, materials)
+	res, err := api.svc.GenerateArticle(c.Request.Context(), req.Topic, req.DocIDs, req.SkipPolish)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
-	sections, err = compiler.WriteSections(ctx, req.Topic, sections, materials)
-	if err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-
-	issues := wiki.VerifyCitations(sections, sourceCount)
-
-	markdown := renderSections(sections)
-	if !req.SkipPolish {
-		if polished, err := compiler.Polish(ctx, req.Topic, sections); err == nil && polished != "" {
-			markdown = polished
-		}
-	}
-
 	response.Success(c, gin.H{
-		"topic":           req.Topic,
-		"sections":        sections,
-		"markdown":        markdown,
-		"source_count":    sourceCount,
-		"citation_issues": issues,
+		"topic":           res.Topic,
+		"sections":        res.Sections,
+		"markdown":        res.Markdown,
+		"source_count":    res.SourceCount,
+		"citation_issues": res.CitationIssues,
 	})
-}
-
-func renderSections(sections []wiki.Section) string {
-	out := ""
-	for _, s := range sections {
-		out += "## " + s.Title + "\n\n" + s.Content + "\n\n"
-	}
-	return out
 }
 
 // GetPurpose 读取空间研究目标（P2 Purpose 层，对齐 LLM Wiki 的 purpose.md）。
+// @Summary Wiki 研究目标读取
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/purpose [get]
 func (api *WikiAPI) GetPurpose(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	response.Success(c, gin.H{
-		"space_id": spaceID,
-		"purpose":  wiki.GetPurpose(spaceID),
-	})
+	response.Success(c, gin.H{"space_id": spaceID, "purpose": api.svc.GetPurpose(spaceID)})
 }
 
 // UpdatePurpose 写入空间研究目标。空串 = 清除。立即生效于后续编译与检索选页。
+// @Summary Wiki 研究目标写入
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/purpose"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/purpose [put]
 func (api *WikiAPI) UpdatePurpose(c *gin.Context) {
 	var req struct {
 		SpaceID int    `json:"space_id"`
@@ -385,30 +286,40 @@ func (api *WikiAPI) UpdatePurpose(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgSpaceIDRequired)
 		return
 	}
-	if err := wiki.SetPurpose(req.SpaceID, req.Purpose); err != nil {
-		response.ServerErrorSafe(c, err)
+	if !requireWikiMember(c, req.SpaceID) {
 		return
 	}
-	response.Success(c, gin.H{
-		"space_id": req.SpaceID,
-		"purpose":  wiki.GetPurpose(req.SpaceID),
-	})
+	purpose, err := api.svc.SetPurpose(req.SpaceID, req.Purpose)
+	if err != nil {
+		wikiFail(c, err)
+		return
+	}
+	response.Success(c, gin.H{"space_id": req.SpaceID, "purpose": purpose})
 }
 
 // GetSchema 读取空间行为约束（P2 SCHEMA 层，对齐 LLM Wiki 的 SCHEMA.md）。
+// @Summary Wiki 行为约束读取
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/schema [get]
 func (api *WikiAPI) GetSchema(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	response.Success(c, gin.H{
-		"space_id": spaceID,
-		"schema":   wiki.GetSchema(spaceID),
-	})
+	response.Success(c, gin.H{"space_id": spaceID, "schema": api.svc.GetSchema(spaceID)})
 }
 
 // UpdateSchema 写入空间行为约束。空串 = 清除。立即生效于后续编译的 system prompt。
+// @Summary Wiki 行为约束写入
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/schema"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/schema [put]
 func (api *WikiAPI) UpdateSchema(c *gin.Context) {
 	var req struct {
 		SpaceID int    `json:"space_id"`
@@ -418,14 +329,15 @@ func (api *WikiAPI) UpdateSchema(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgSpaceIDRequired)
 		return
 	}
-	if err := wiki.SetSchema(req.SpaceID, req.Schema); err != nil {
-		response.ServerErrorSafe(c, err)
+	if !requireWikiMember(c, req.SpaceID) {
 		return
 	}
-	response.Success(c, gin.H{
-		"space_id": req.SpaceID,
-		"schema":   wiki.GetSchema(req.SpaceID),
-	})
+	schema, err := api.svc.SetSchema(req.SpaceID, req.Schema)
+	if err != nil {
+		wikiFail(c, err)
+		return
+	}
+	response.Success(c, gin.H{"space_id": req.SpaceID, "schema": schema})
 }
 
 // ListHistory 页面版本历史（降序）。
@@ -437,16 +349,13 @@ func (api *WikiAPI) UpdateSchema(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ai/wiki/pages/{slug}/history [get]
 func (api *WikiAPI) ListHistory(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	compiler := wiki.NewCompiler(nil)
-	hist, err := compiler.History(spaceID, slug)
+	hist, err := api.svc.History(spaceID, slug)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"slug": slug, "history": hist, "total": len(hist)})
@@ -463,10 +372,8 @@ func (api *WikiAPI) ListHistory(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ai/wiki/pages/{slug}/rollback [post]
 func (api *WikiAPI) RollbackPage(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
 	var req struct {
@@ -476,14 +383,9 @@ func (api *WikiAPI) RollbackPage(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgRequestParameterError)
 		return
 	}
-	compiler := wiki.NewCompiler(aimod.GetModule().PrimaryProvider())
-	page, err := compiler.Rollback(spaceID, slug, req.Version)
+	page, err := api.svc.Rollback(spaceID, slug, req.Version)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.BadRequestKey(c, response.MsgPageVersionNotFound)
-			return
-		}
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"page": page})
@@ -500,10 +402,8 @@ func (api *WikiAPI) RollbackPage(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ai/wiki/pages/{slug}/contradictions [post]
 func (api *WikiAPI) MarkContradictions(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
 	var req struct {
@@ -513,8 +413,8 @@ func (api *WikiAPI) MarkContradictions(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgRequestParameterError)
 		return
 	}
-	if err := wiki.NewCompiler(nil).MarkContradictions(spaceID, slug, req.Items); err != nil {
-		response.ServerErrorSafe(c, err)
+	if err := api.svc.MarkContradictions(spaceID, slug, req.Items); err != nil {
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"slug": slug, "marked": len(req.Items)})
@@ -529,12 +429,6 @@ func (api *WikiAPI) MarkContradictions(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ai/wiki/propose-analysis [post]
 func (api *WikiAPI) ProposeAnalysis(c *gin.Context) {
-	m := aimod.GetModule()
-	p := m.PrimaryProvider()
-	if p == nil {
-		response.ServerErrorKey(c, response.MsgAIModelUnconfigured)
-		return
-	}
 	var req struct {
 		SpaceID  int    `json:"space_id"`
 		Title    string `json:"title"`
@@ -546,9 +440,12 @@ func (api *WikiAPI) ProposeAnalysis(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgRequestParameterError)
 		return
 	}
-	page, err := wiki.NewCompiler(p).ProposeAnalysis(c.Request.Context(), req.SpaceID, req.Title, req.Question, req.Answer)
+	if !requireWikiMember(c, req.SpaceID) {
+		return
+	}
+	page, err := api.svc.ProposeAnalysis(c.Request.Context(), req.SpaceID, req.Title, req.Question, req.Answer)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"page": page})
@@ -567,52 +464,37 @@ func (api *WikiAPI) ProposeAnalysis(c *gin.Context) {
 // format=md&slug=X：导出单页 markdown 文件。
 // 导入侧复用现有文档 markdown 通道（/workspace 的 ImportDocuments），不另造格式。
 func (api *WikiAPI) ExportWiki(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	if _, ok := middleware.RequireUser(c); !ok {
-		return
-	}
-	compiler := wiki.NewCompiler(nil)
 
-	format := c.DefaultQuery("format", "zip")
-	if format == "md" {
+	if c.DefaultQuery("format", "zip") == "md" {
 		slug := c.Query("slug")
 		if slug == "" {
 			response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
 			return
 		}
-		p, err := compiler.GetPageForRead(spaceID, slug)
+		markdown, err := api.svc.ExportPageMarkdown(spaceID, slug)
 		if err != nil {
-			response.NotFoundKey(c, response.MsgPageNotFound)
+			wikiFail(c, err)
 			return
 		}
 		c.Header("Content-Type", "text/markdown; charset=utf-8")
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(slug+".md")))
-		c.String(200, compiler.ExportPage(p))
+		c.String(200, markdown)
 		return
 	}
 
-	pages, err := compiler.ExportSpace(spaceID)
+	pages, links, err := api.svc.ExportSpace(spaceID)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-	if len(pages) == 0 {
-		response.BadRequestKey(c, response.MsgWikiNoCompilableContent)
+		wikiFail(c, err)
 		return
 	}
 
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	names := make([]string, 0, len(pages))
-	for name := range pages {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
+	for _, name := range sortedPageNames(pages) {
 		w, err := zw.Create(name)
 		if err != nil {
 			continue
@@ -620,7 +502,7 @@ func (api *WikiAPI) ExportWiki(c *gin.Context) {
 		_, _ = w.Write([]byte(pages[name]))
 	}
 	// links.md：交叉引用边导出为 markdown 表格，供其他 llm-wiki 工具重建图
-	if links, err := compiler.LinksForRead(spaceID); err == nil && len(links) > 0 {
+	if len(links) > 0 {
 		var lb strings.Builder
 		lb.WriteString("# 交叉引用\n\n| from | to | type | weight |\n|---|---|---|---|\n")
 		for _, l := range links {
@@ -640,24 +522,45 @@ func (api *WikiAPI) ExportWiki(c *gin.Context) {
 	c.Data(200, "application/zip", buf.Bytes())
 }
 
+// sortedPageNames 按稳定顺序写 zip（避免两次导出文件顺序不同）。
+func sortedPageNames(pages map[string]string) []string {
+	names := make([]string, 0, len(pages))
+	for name := range pages {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // CheckPins 重新编译后复核人工 pin：满足放行 / 冲突进人工裁决 / 锚点失效标记 orphan。
+// @Summary Wiki 人工锚点复核
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug}/check-pins [post]
 func (api *WikiAPI) CheckPins(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
-	m := aimod.GetModule()
-	checks, err := wiki.NewCompiler(m.PrimaryProvider()).CheckPins(c.Request.Context(), spaceID, slug)
+	checks, err := api.svc.CheckPins(c.Request.Context(), spaceID, slug)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"checks": checks, "total": len(checks)})
 }
 
 // CreatePin 记录一条人工确认的事实锚点。
+// @Summary Wiki 人工锚点创建
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/page_slug/kind/claim/anchor"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pins [post]
 func (api *WikiAPI) CreatePin(c *gin.Context) {
 	var req struct {
 		SpaceID  int    `json:"space_id"`
@@ -666,112 +569,133 @@ func (api *WikiAPI) CreatePin(c *gin.Context) {
 		Claim    string `json:"claim"`
 		Anchor   string `json:"anchor"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.SpaceID <= 0 || req.PageSlug == "" || strings.TrimSpace(req.Claim) == "" {
+	if err := c.ShouldBindJSON(&req); err != nil || req.SpaceID <= 0 ||
+		req.PageSlug == "" || strings.TrimSpace(req.Claim) == "" {
 		response.BadRequestKey(c, response.MsgSpacePageClaimRequired)
 		return
 	}
-	userID, _ := middleware.GetUserID(c)
-	if req.Kind == "" {
-		req.Kind = "correction"
-	}
-	pin := &knowledgemodel.WikiPin{
-		SpaceID:    req.SpaceID,
-		PageSlug:   req.PageSlug,
-		Kind:       req.Kind,
-		Claim:      strings.TrimSpace(req.Claim),
-		Anchor:     req.Anchor,
-		Provenance: knowledgemodel.WikiProvenanceHuman,
-		Status:     string(knowledgemodel.WikiPinStatusActive),
-		CreatedBy:  userID,
-	}
-	if err := api.pinRepo.Create(pin); err != nil {
-		response.ServerErrorSafe(c, err)
+	if !requireWikiMember(c, req.SpaceID) {
 		return
 	}
-	// 页面一旦含人工确认的知识，provenance 切到 human，源下架不会自动删它。
-	// 这一步失败必须撤回 pin 并报错：留着 pin 而 provenance 仍是 auto，
-	// 用户看到"钉住成功"，而源一下架这个页面照样会被连带删掉 —— 钉住这件事根本没生效。
-	if err := api.pageRepo.MarkHumanEdited(req.SpaceID, req.PageSlug); err != nil {
-		if delErr := api.pinRepo.Delete(pin.ID); delErr != nil {
-			logx.Errorf("[wiki] pin %d 已建但标记人工编辑失败，且回滚 pin 也失败（需人工清理）: mark=%v delete=%v", pin.ID, err, delErr)
-		}
-		response.ServerErrorSafe(c, err)
+	userID, _ := middleware.GetUserID(c)
+	pin, err := api.svc.CreatePin(req.SpaceID, req.PageSlug, req.Kind, req.Claim, req.Anchor, userID)
+	if err != nil {
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"pin": pin})
 }
 
 // ListPins 列出空间的 pin。
+// @Summary Wiki 人工锚点列表
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param status query string false "锚点状态"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pins [get]
 func (api *WikiAPI) ListPins(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	pins, err := api.pinRepo.ListBySpace(spaceID, c.Query("status"))
+	pins, err := api.svc.ListPins(spaceID, c.Query("status"))
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"pins": pins, "total": len(pins)})
 }
 
 // ResolvePin 处理一条 pin（确认已解决 / 关闭）。
+// @Summary Wiki 人工锚点处理
+// @Tags AI
+// @Produce json
+// @Param id path int true "锚点ID"
+// @Param status query string false "目标状态"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pins/{id}/resolve [post]
 func (api *WikiAPI) ResolvePin(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id <= 0 {
-		response.BadRequestKey(c, response.MsgParameterError)
+	id, ok := pathID(c)
+	if !ok {
+		return
+	}
+	spaceID, err := api.svc.PinSpaceID(id)
+	if err != nil || !requireWikiMember(c, spaceID) {
 		return
 	}
 	status := c.Query("status")
-	if status == "" {
-		status = string(knowledgemodel.WikiPinStatusResolved)
-	}
-	if err := api.pinRepo.UpdateStatus(id, status); err != nil {
-		response.ServerErrorSafe(c, err)
+	if err := api.svc.ResolvePin(id, status); err != nil {
+		wikiFail(c, err)
 		return
+	}
+	if status == "" {
+		status = "resolved"
 	}
 	response.Success(c, gin.H{"id": id, "status": status})
 }
 
 // ListReviews 异步审核队列。
+// @Summary Wiki 审核队列
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param status query string false "审核状态"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/reviews [get]
 func (api *WikiAPI) ListReviews(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	items, err := api.reviewRepo.ListBySpace(spaceID, c.Query("status"))
+	items, err := api.svc.ListReviews(spaceID, c.Query("status"))
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"reviews": items, "total": len(items)})
 }
 
 // ResolveReview 处理审核项：批准时走乐观锁发布，基线不匹配则要求 rebase。
+// @Summary Wiki 审核项处理
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param id path int true "审核项ID"
+// @Param body body map[string]string true "action"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/reviews/{id}/resolve [post]
 func (api *WikiAPI) ResolveReview(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id <= 0 {
-		response.BadRequestKey(c, response.MsgParameterError)
+	id, ok := pathID(c)
+	if !ok {
+		return
+	}
+	spaceID, err := api.svc.ReviewSpaceID(id)
+	if err != nil || !requireWikiMember(c, spaceID) {
 		return
 	}
 	var req struct {
 		Action string `json:"action"`
 	}
 	_ = c.ShouldBindJSON(&req)
-	if req.Action == "" {
-		req.Action = knowledgemodel.WikiReviewStatusAccepted
-	}
-	userID, _ := middleware.GetUserID(c)
-	if err := api.reviewRepo.Resolve(id, req.Action, userID); err != nil {
-		response.ServerErrorSafe(c, err)
+	if err := api.svc.ResolveReview(id, req.Action, currentUserID(c)); err != nil {
+		wikiFail(c, err)
 		return
+	}
+	if req.Action == "" {
+		req.Action = "accepted"
 	}
 	response.Success(c, gin.H{"id": id, "status": req.Action})
 }
 
 // RunLint 执行一次体检（孤立页 / 稀疏社区 / 死链 / 过时内容），结果全量替换未处理项。
+// @Summary Wiki 体检执行
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/stale_days"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/lint [post]
 func (api *WikiAPI) RunLint(c *gin.Context) {
 	var req struct {
 		SpaceID   int `json:"space_id"`
@@ -785,41 +709,53 @@ func (api *WikiAPI) RunLint(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgSpaceIDRequired)
 		return
 	}
-	m := aimod.GetModule()
-	issues, err := wiki.NewCompiler(m.PrimaryProvider()).Lint(req.SpaceID, req.StaleDays)
+	if !requireWikiMember(c, req.SpaceID) {
+		return
+	}
+	issues, err := api.svc.RunLint(req.SpaceID, req.StaleDays)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"issues": issues, "total": len(issues)})
 }
 
 // ListLint 列出体检问题。
+// @Summary Wiki 体检问题列表
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param status query string false "默认 open"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/lint [get]
 func (api *WikiAPI) ListLint(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	items, err := api.lintRepo.ListBySpace(spaceID, c.DefaultQuery("status", "open"))
+	items, err := api.svc.ListLint(spaceID, c.DefaultQuery("status", "open"))
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"issues": items, "total": len(items)})
 }
 
 // GetInsights 结构性洞察：意外连接 / 知识缺口 / 桥节点，每类带一个可执行动作。
+// @Summary Wiki 结构洞察
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/insights [get]
 func (api *WikiAPI) GetInsights(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	m := aimod.GetModule()
-	out, err := wiki.NewCompiler(m.PrimaryProvider()).Insights(spaceID)
+	out, err := api.svc.Insights(spaceID)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"insights": out, "total": len(out)})
@@ -827,6 +763,13 @@ func (api *WikiAPI) GetInsights(c *gin.Context) {
 
 // RunDeepResearch 针对 Graph Insight 触发深度研究回灌（P3）：
 // 生成研究查询 → 汇编已知材料 → 产出研究纪要 draft + 审核项。
+// @Summary Wiki 深度研究回灌
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/kind/slugs/detail"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/deep-research [post]
 func (api *WikiAPI) RunDeepResearch(c *gin.Context) {
 	var req struct {
 		SpaceID int      `json:"space_id"`
@@ -838,77 +781,76 @@ func (api *WikiAPI) RunDeepResearch(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgSpaceIDRequired)
 		return
 	}
-	m := aimod.GetModule()
-	if _, ok := middleware.RequireUser(c); !ok {
+	if !requireWikiMember(c, req.SpaceID) {
 		return
 	}
-	compiler := wiki.NewCompiler(m.PrimaryProvider())
-	// W5：多智能体深度研究开关开启时，注入编排器走 researcher→writer→critic 闭环
-	if wiki.MultiagentEnabled() {
-		if orch := m.NewOrchestrator(); orch != nil {
-			compiler.SetMultiagentOrchestrator(&wikiMultiagentAdapter{orch: orch})
-		}
-	}
-	report, err := compiler.DeepResearch(c.Request.Context(),
-		req.SpaceID, wiki.Insight{Kind: req.Kind, Slugs: req.Slugs, Detail: req.Detail})
+	report, err := api.svc.RunDeepResearch(c.Request.Context(), req.SpaceID, wiki.Insight{
+		Kind: req.Kind, Slugs: req.Slugs, Detail: req.Detail,
+	})
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"report": report})
 }
 
 // GetRelated 4-Signal 相关性排序的相关页面。
+// @Summary Wiki 相关页面
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Param limit query int false "默认 10"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/related/{slug} [get]
 func (api *WikiAPI) GetRelated(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	m := aimod.GetModule()
-	out, err := wiki.NewCompiler(m.PrimaryProvider()).RelatedPages(spaceID, slug, limit)
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	out, err := api.svc.GetRelated(spaceID, slug, limit)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"related": out, "total": len(out)})
 }
 
 // DeletePage 删除页面（含死链清理）。源文档下架请用 RemoveSource 走级联规则。
+// @Summary Wiki 页面删除
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "页面 slug"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug} [delete]
 func (api *WikiAPI) DeletePage(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	slug := c.Param("slug")
-	if spaceID <= 0 || slug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, slug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
-	page, err := api.pageRepo.FindBySlug(spaceID, slug)
-	if err != nil {
-		response.NotFoundKey(c, response.MsgPageNotFound)
+	if err := api.svc.DeletePage(spaceID, slug); err != nil {
+		wikiFail(c, err)
 		return
 	}
-	if err := api.pageRepo.Delete(page.ID); err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-	// 页面已经删掉了，边清不干净都不该把整个操作翻成失败 —— 但必须留痕：
-	// 静默丢掉会留下一条指向不存在页面的边，而 Wiki 图与治理报告都把它当真边读。
-	if err := api.linkRepo.DeleteBySlug(spaceID, slug); err != nil {
-		logx.Warnf("[wiki] 页面 %s（空间 %d）已删除，但其关联边清理失败（会留下死边，可重跑治理）: %v", slug, spaceID, err)
-	}
-	wiki.InvalidateIndex(spaceID)
 	response.Success(c, gin.H{"slug": slug})
 }
 
 // SupersedePage 手动取代：标记旧页面被新页面取代（LLM Wiki 取代链）。
 // 与自动取代共用 SupersedePage 治理逻辑：人工页面不取代、已取代页面不重复取代。
+// @Summary Wiki 页面取代
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Param slug path string true "被取代页面 slug"
+// @Param body body map[string]string true "superseded_by"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/pages/{slug}/supersede [post]
 func (api *WikiAPI) SupersedePage(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	oldSlug := c.Param("slug")
-	if spaceID <= 0 || oldSlug == "" {
-		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+	spaceID, oldSlug, ok := querySpaceAndSlug(c)
+	if !ok || !requireWikiMember(c, spaceID) {
 		return
 	}
 	var req struct {
@@ -918,27 +860,21 @@ func (api *WikiAPI) SupersedePage(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgRequestParameterError)
 		return
 	}
-	// 旧页面必须存在
-	if _, err := api.pageRepo.FindBySlug(spaceID, oldSlug); err != nil {
-		response.NotFoundKey(c, response.MsgPageNotFound)
+	if err := api.svc.SupersedePage(spaceID, oldSlug, req.SupersededBy); err != nil {
+		wikiFail(c, err)
 		return
 	}
-	// 新页面也必须存在
-	if _, err := api.pageRepo.FindBySlug(spaceID, req.SupersededBy); err != nil {
-		response.NotFoundKey(c, response.MsgPageNotFound)
-		return
-	}
-
-	compiler := wiki.NewCompiler(nil)
-	if err := compiler.SupersedePage(spaceID, oldSlug, req.SupersededBy); err != nil {
-		response.ServerErrorSafe(c, err)
-		return
-	}
-	wiki.InvalidateIndex(spaceID)
 	response.Success(c, gin.H{"slug": oldSlug, "superseded_by": req.SupersededBy})
 }
 
 // RemoveSource 源文档下架的级联清理：独占页删除、共享页摘除溯源、死链清理。
+// @Summary Wiki 源文档下架级联
+// @Tags AI
+// @Accept json
+// @Produce json
+// @Param body body map[string]interface{} true "space_id/source_doc_id"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/sources/remove [post]
 func (api *WikiAPI) RemoveSource(c *gin.Context) {
 	var req struct {
 		SpaceID     int `json:"space_id"`
@@ -948,53 +884,88 @@ func (api *WikiAPI) RemoveSource(c *gin.Context) {
 		response.BadRequestKey(c, response.MsgSpaceIDAndSourceDocRequired)
 		return
 	}
-	m := aimod.GetModule()
-	res, err := wiki.NewCompiler(m.PrimaryProvider()).RemoveSource(req.SpaceID, req.SourceDocID)
+	if !requireWikiMember(c, req.SpaceID) {
+		return
+	}
+	res, err := api.svc.RemoveSource(req.SpaceID, req.SourceDocID)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"result": res})
 }
 
 // GetIndex 返回确定性构建的知识目录（查询阶段的导航入口 / Prompt Caching 前缀）。
+// @Summary Wiki 知识目录
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/index [get]
 func (api *WikiAPI) GetIndex(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	m := aimod.GetModule()
-	compiler := wiki.NewCompiler(m.PrimaryProvider())
-	text, entries, err := compiler.BuildIndex(spaceID)
+	text, entries, err := api.svc.GetIndex(spaceID)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"markdown": text, "entries": entries, "total": len(entries)})
 }
 
 // GetLinks 返回空间的交叉引用边，用于图谱可视化。
+// @Summary Wiki 交叉引用边
+// @Tags AI
+// @Produce json
+// @Param space_id query int true "空间ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/ai/wiki/links [get]
 func (api *WikiAPI) GetLinks(c *gin.Context) {
-	spaceID, _ := strconv.Atoi(c.Query("space_id"))
-	if spaceID <= 0 {
-		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+	spaceID, ok := querySpaceID(c)
+	if !ok || !requireWikiReadable(c, spaceID) {
 		return
 	}
-	links, err := api.linkRepo.ListBySpace(spaceID)
+	links, err := api.svc.GetLinks(spaceID)
 	if err != nil {
-		response.ServerErrorSafe(c, err)
+		wikiFail(c, err)
 		return
 	}
 	response.Success(c, gin.H{"links": links, "total": len(links)})
 }
 
-// wikiMultiagentAdapter 将 multiagent.Orchestrator 适配为 wiki.MultiagentRunner 接口，
-// 避免 wiki 包直接导入 multiagent 包（导入循环）。
-type wikiMultiagentAdapter struct {
-	orch *multiagent.Orchestrator
+// ---- 参数小工具 ----
+
+func querySpaceID(c *gin.Context) (int, bool) {
+	id, _ := strconv.Atoi(c.Query("space_id"))
+	if id <= 0 {
+		response.BadRequestKey(c, response.MsgSpaceIDRequired)
+		return 0, false
+	}
+	return id, true
 }
 
-func (a *wikiMultiagentAdapter) Run(ctx context.Context, question string) (string, error) {
-	return a.orch.Run(ctx, question, nil)
+func querySpaceAndSlug(c *gin.Context) (int, string, bool) {
+	spaceID, _ := strconv.Atoi(c.Query("space_id"))
+	slug := c.Param("slug")
+	if spaceID <= 0 || slug == "" {
+		response.BadRequestKey(c, response.MsgSpaceIDAndSlugRequired)
+		return 0, "", false
+	}
+	return spaceID, slug, true
+}
+
+func pathID(c *gin.Context) (int, bool) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		response.BadRequestKey(c, response.MsgParameterError)
+		return 0, false
+	}
+	return id, true
+}
+
+func currentUserID(c *gin.Context) int {
+	id, _ := middleware.GetUserID(c)
+	return id
 }

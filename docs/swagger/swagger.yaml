@@ -178,6 +178,75 @@ paths:
       summary: 列出待确认的记忆
       tags:
       - AI
+  /api/v1/ai/wiki/article/generate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: topic/doc_ids/skip_polish
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 结构化长文生成
+      tags:
+      - AI
+  /api/v1/ai/wiki/compile:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/doc_ids/page_type/concurrency
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 知识编译
+      tags:
+      - AI
+  /api/v1/ai/wiki/deep-research:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/kind/slugs/detail
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 深度研究回灌
+      tags:
+      - AI
   /api/v1/ai/wiki/export:
     get:
       parameters:
@@ -202,6 +271,202 @@ paths:
           schema:
             type: file
       summary: Wiki 知识页导出（OKF/Markdown，zip 或单页）
+      tags:
+      - AI
+  /api/v1/ai/wiki/index:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 知识目录
+      tags:
+      - AI
+  /api/v1/ai/wiki/insights:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 结构洞察
+      tags:
+      - AI
+  /api/v1/ai/wiki/links:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 交叉引用边
+      tags:
+      - AI
+  /api/v1/ai/wiki/lint:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 默认 open
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 体检问题列表
+      tags:
+      - AI
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/stale_days
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 体检执行
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面列表
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}:
+    delete:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面删除
+      tags:
+      - AI
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面详情
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}/check-pins:
+    post:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 人工锚点复核
       tags:
       - AI
   /api/v1/ai/wiki/pages/{slug}/contradictions:
@@ -261,6 +526,64 @@ paths:
       summary: Wiki 页面版本历史
       tags:
       - AI
+  /api/v1/ai/wiki/pages/{slug}/human-edit:
+    post:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面标记人工编辑
+      tags:
+      - AI
+  /api/v1/ai/wiki/pages/{slug}/publish:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: base_version
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面发布
+      tags:
+      - AI
   /api/v1/ai/wiki/pages/{slug}/rollback:
     post:
       consumes:
@@ -295,6 +618,108 @@ paths:
       summary: Wiki 页面回滚到历史版本
       tags:
       - AI
+  /api/v1/ai/wiki/pages/{slug}/supersede:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 被取代页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: superseded_by
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 页面取代
+      tags:
+      - AI
+  /api/v1/ai/wiki/pins:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 锚点状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 人工锚点列表
+      tags:
+      - AI
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/page_slug/kind/claim/anchor
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 人工锚点创建
+      tags:
+      - AI
+  /api/v1/ai/wiki/pins/{id}/resolve:
+    post:
+      parameters:
+      - description: 锚点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 目标状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 人工锚点处理
+      tags:
+      - AI
   /api/v1/ai/wiki/propose-analysis:
     post:
       consumes:
@@ -316,6 +741,219 @@ paths:
             additionalProperties: true
             type: object
       summary: Wiki 好答案回填（问答 → analysis 草稿页）
+      tags:
+      - AI
+  /api/v1/ai/wiki/purpose:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 研究目标读取
+      tags:
+      - AI
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/purpose
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 研究目标写入
+      tags:
+      - AI
+  /api/v1/ai/wiki/related/{slug}:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 页面 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: 默认 10
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 相关页面
+      tags:
+      - AI
+  /api/v1/ai/wiki/reviews:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: 审核状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 审核队列
+      tags:
+      - AI
+  /api/v1/ai/wiki/reviews/{id}/resolve:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 审核项ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: action
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 审核项处理
+      tags:
+      - AI
+  /api/v1/ai/wiki/schema:
+    get:
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 行为约束读取
+      tags:
+      - AI
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/schema
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 行为约束写入
+      tags:
+      - AI
+  /api/v1/ai/wiki/search:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 空间ID
+        in: query
+        name: space_id
+        required: true
+        type: integer
+      - description: question/fulltext_top_k
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 知识检索
+      tags:
+      - AI
+  /api/v1/ai/wiki/sources/remove:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: space_id/source_doc_id
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Wiki 源文档下架级联
       tags:
       - AI
   /api/v1/auth-sso:

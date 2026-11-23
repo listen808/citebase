@@ -22,12 +22,13 @@ API（`internal/api/`）→ Service（`internal/service/`）→ Repository（`in
 
 新增模块：`collab/`（Yjs 实时协作）、`cache/`（内存 + Redis）、`queue/`、`response/`（统一响应）、`brand/`（产品名唯一落点，见 `docs/design/brand.md`）。
 
-## AI 模块（19 个子包）
+## AI 模块（20 个子包）
 
 | 包 | 职责 | 关键点 |
 |---|---|---|
 | `provider/` | 多 LLM 适配 | OpenAI 兼容 + Anthropic 原生；三级 primary/fast/reasoning；熔断 5 次/30s；指数退避；SSE；令牌配额 |
-| `rag/` | 检索增强 | 96 个根级 `.go`（88 源 + 8 测试），含 6 个子包共 107；九阶段管线见 `docs/architecture/rag-pipeline.md` |
+| `rag/` | 检索增强 | 97 个根级 `.go`（85 源 + 12 测试），含 6 个子包；九阶段管线见 `docs/architecture/rag-pipeline.md` |
+| `wiki/` | LLM Wiki 知识编译 | 文档 → 实体/概念页（Plan 去重 + Generate 并发）、交叉引用图、Purpose/Schema 层、pin/lint/review 治理、级联下架；专题见 `docs/architecture/llm-wiki.md` |
 | `analyzer/` | 知识分析 | 实体抽取/消解、分类、去重、矛盾检测、质量评分、图谱增强；增量/快检/单文档/全量 |
 | `text2sql/` | 自然语言转 SQL | CoT 生成、执行反馈、多候选、AST 校验、外键发现、策略与信任子包；复杂度 0–100 决定档位 |
 | `embedding/` | 向量化与存储 | Bolt HNSW（M=16/efSearch=50）、Chroma v2、Qdrant REST；启动自载入，失败退化为暴力扫描 |
@@ -41,13 +42,13 @@ API（`internal/api/`）→ Service（`internal/service/`）→ Repository（`in
 | `observability/` | 可观测 | 指标、追踪、provider 埋点 |
 | `voice/` `agent/` `router/` `facade/` `writer/` `tokenizer/` | 语音、Agent、路由、门面、写回、分词 | `facade` 是 AI/Schema/Text2SQL 的统一编排入口 |
 
-AI 模块共 232 个 Go 文件（`internal/ai/` 递归）；Text2SQL 另 88 个（其中 82 在包根）。`internal/ai/data/` 是运行期数据目录，不是包。
+AI 模块共 238 个 Go 文件（`internal/ai/` 递归，200 源 + 38 测试），其中 `text2sql/` 85 个、`wiki/` 23 个。`internal/ai/data/` 是运行期数据目录，不是包。
 
 ## 前端
 
 - Vue 3.5 + TS + Vite + Pinia + Vue Router，SPA 在 `web/`；Node `^20.19.0 || >=22.12.0`。
 - 自动导入 `vue` / `vue-router` / `pinia` 与 `composables`、`stores`。
-- Apple 设计系统：`web/src/components/apple/` 下 50 个 `Ap*.vue`（`ls web/src/components/apple/Ap*.vue | wc -l`）+ `SpotlightSearchResult.vue`。
+- Apple 设计系统：`web/src/components/apple/` 下 51 个 `Ap*.vue`（`ls web/src/components/apple/Ap*.vue | wc -l`）+ `SpotlightSearchResult.vue`。
 - **零 CSS 文件**：全部走内联 `:style` + token 函数（`cv()`、`AppleType`、`AppleSpace`、`AppleRadius`）。共享样式在 `styles/layout/page-styles.ts`，AI 子页在 `styles/ai/ai-page-styles.ts`（re-export 前者）。
 - 个性化档位真相源：`styles/theme/personalization.ts`、`accents.ts`；行为唯一落点在 `stores/app/ui.ts`；口径见 `docs/engineering/theme-system.md`。
 - AI 设置页 `AISettingsLayout.vue`：6 组 31 个子页，`?section=<key>` 寻址，注册三处必须同步（`sectionComponents` / `sectionMeta` / `groups`）。

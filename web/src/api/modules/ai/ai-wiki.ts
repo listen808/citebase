@@ -1,4 +1,4 @@
-import { get, post, del } from '../../client'
+import { get, post, put, del } from '../../client'
 
 // LLM Wiki 知识编译与治理接口。
 // 所有接口都要求 space_id：编译产物按空间隔离。
@@ -315,4 +315,60 @@ export function exportWiki(spaceId: number, format: 'zip' | 'md' = 'zip', slug?:
     params: { space_id: spaceId, format, slug },
     responseType: 'blob',
   })
+}
+
+// 知识目录（确定性构建，查询阶段的导航入口）
+export function getWikiIndex(spaceId: number) {
+  return get<{ markdown: string; entries: WikiIndexEntry[]; total: number }>('/ai/wiki/index', {
+    params: { space_id: spaceId },
+  })
+}
+
+// 研究目标（P2 Purpose 层）：空串表示清除
+export function getWikiPurpose(spaceId: number) {
+  return get<{ space_id: number; purpose: string }>('/ai/wiki/purpose', {
+    params: { space_id: spaceId },
+  })
+}
+
+export function setWikiPurpose(spaceId: number, purpose: string) {
+  return put<{ space_id: number; purpose: string }>('/ai/wiki/purpose', { space_id: spaceId, purpose })
+}
+
+// 行为约束（P2 SCHEMA 层）：空串表示清除
+export function getWikiSchema(spaceId: number) {
+  return get<{ space_id: number; schema: string }>('/ai/wiki/schema', {
+    params: { space_id: spaceId },
+  })
+}
+
+export function setWikiSchema(spaceId: number, schema: string) {
+  return put<{ space_id: number; schema: string }>('/ai/wiki/schema', { space_id: spaceId, schema })
+}
+
+// 源文档下架级联（独占页删除 / 共享页摘溯源 / 死链清理）
+export function removeWikiSource(spaceId: number, sourceDocId: number) {
+  return post<{ result: { removed_pages: string[]; pruned_pages: string[]; cleaned_links: number } }>(
+    '/ai/wiki/sources/remove',
+    { space_id: spaceId, source_doc_id: sourceDocId },
+  )
+}
+
+export interface DeepResearchReport {
+  queries: string[]
+  reference: string
+  page_slug: string
+  review_id: number
+  created: boolean
+  note: string
+}
+
+// 深度研究回灌（P3）：以图洞察为输入生成研究纪要草稿 + 审核项
+export function runWikiDeepResearch(data: {
+  space_id: number
+  kind: string
+  slugs: string[]
+  detail?: string
+}) {
+  return post<{ report: DeepResearchReport }>('/ai/wiki/deep-research', data)
 }

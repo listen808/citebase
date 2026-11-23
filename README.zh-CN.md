@@ -102,7 +102,7 @@ go test ./internal/... ./tools/repocheck/... -count=1 -timeout 120s
 cd web && npm run test / npm run e2e
 ```
 
-本仓库托管 CI 从未跑起来（`.github/` 只有 issue 模板，没有 workflow；提交钩子也不在树里），实际执行点是本地 `make ci` 与 `cd web && npm run ci`。提交钩子只跑 ESLint、令牌门禁、类型检查与 vitest，**样式七道里的其余六道与浏览器巡检必须显式跑**。规则与踩坑：[static-gates.md](docs/gates/static-gates.md) · [runtime-inspectors.md](docs/gates/runtime-inspectors.md)。判据类改动要反向验证：注入违例确认变红，再编辑撤回。
+托管 CI 已在 2026-11-22 入库（`.github/workflows/ci.yml`：Go 的 gofmt/build/vet/test/doc-links 与 web 的 lint/type-check/style/vitest/build，推送即触发；详见 [CI 落地与钩子取舍](docs/decision-log/2026-11-22-ci-and-hooks.md)）。提交钩子仍不在树里，所以本地提交在推送前未经验证；本地等价的执行点是 `make ci` 与 `cd web && npm run ci`。规则与踩坑：[static-gates.md](docs/gates/static-gates.md) · [runtime-inspectors.md](docs/gates/runtime-inspectors.md)。判据类改动要反向验证：注入违例确认变红，再编辑撤回。
 
 ## 文档与许可
 

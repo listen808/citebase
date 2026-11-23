@@ -22,14 +22,15 @@
 docs/
 ├── README.md                  ← 本索引
 ├── engineering/
-│   ├── codebase-map.md            模块地图：启动顺序、分层、19 个 AI 子包、数据库生成链、统计口径
+│   ├── codebase-map.md            模块地图：启动顺序、分层、20 个 AI 子包、数据库生成链、统计口径
 │   ├── backend-conventions.md     Go 分层、响应封套、错误、RBAC、迁移、测试
 │   ├── frontend-conventions.md    页面容器、版心、共享样式、组件与交互口径
 │   ├── one-implementation.md      "一个概念一处实现"的收口清单
 │   ├── theme-system.md            外观 × 材质、主题契约、偏好跟账号走
 │   └── liquid-glass.md            液态玻璃材质的实现与禁区
 ├── architecture/
-│   └── rag-pipeline.md            检索管线九阶段、缓存与重排的调用顺序
+│   ├── rag-pipeline.md            检索管线九阶段、缓存与重排的调用顺序
+│   └── llm-wiki.md                LLM Wiki 知识编译：分层、主链路、级联规则、开关
 ├── design/
 │   ├── personalization.md     个性化五档（动效/对比度/透明度/强调色/版面人格）的方案与取舍
 │   └── brand.md               品牌名三个落点、静态外壳、旧名归一
@@ -38,9 +39,10 @@ docs/
 │   └── runtime-inspectors.md  浏览器侧运行时巡检（snap / theme-rounds / glass / i18n）
 ├── decision-log/
 │   ├── README.md              记录的写法与命名
-│   └── 2026-10-06-line-endings.md
-│   └── 2026-10-07-ci-and-module-path.md
-│   └── 2026-10-07-rename-scope.md
+│   ├── 2026-10-06-line-endings.md
+│   ├── 2026-10-07-ci-and-module-path.md
+│   ├── 2026-10-07-rename-scope.md
+│   └── 2026-11-22-ci-and-hooks.md
 ├── release/
 │   ├── launch-checklist.md    上线前逐项检查（环境变量、库、代理、备份、回滚）
 │   └── windows-packaging.md   Windows 便携包 / Inno Setup 安装器的构建链与坑
@@ -63,6 +65,7 @@ docs/
 | [theme-system.md](engineering/theme-system.md) | 四套外观 × 两种材质怎么组合？偏好怎么跟账号走？ | 前端 / 设计 |
 | [liquid-glass.md](engineering/liquid-glass.md) | 玻璃材质哪些能付 `backdrop-filter`、哪些会静默失效？ | 前端 |
 | [rag-pipeline.md](architecture/rag-pipeline.md) | 一次提问依次经过哪九道环节？缓存在哪一步短路？ | 后端 / 算法 |
+| [llm-wiki.md](architecture/llm-wiki.md) | 文档怎么编译成知识页？删文档时哪些页会被删掉？ | 后端 / 算法 |
 | [personalization.md](design/personalization.md) | 五档个性化为什么默认 `auto`？`persona` 为什么没有 `auto`？ | 设计 / 前端 |
 | [brand.md](design/brand.md) | 产品名到底存在哪几处？改名要动哪些？ | 设计 / 前端 / 后端 |
 | [static-gates.md](gates/static-gates.md) | 提交前到底跑哪几道门？每道拦什么？ | 所有改前端的人 |
@@ -71,6 +74,8 @@ docs/
 | [interface.md](product/interface.md) | 截图与复刻图上的每个取值来自代码哪一处？ | 设计 / 前端 / 文档 |
 | [launch-checklist.md](release/launch-checklist.md) | 上线前还有哪几项没配？ | 运维 / 发布 |
 | [windows-packaging.md](release/windows-packaging.md) | 安装包为什么装在 `%LOCALAPPDATA%`？快捷方式为什么指 `start.bat`？ | 发布 |
+| [audits/](audits/) | 某次审计的结论与缺口清单在哪？ | 所有人 |
+| [glossary/](glossary/) | 这个术语在本仓库是什么意思？ | 所有人 / 新人 |
 
 ## 文档落点规则
 

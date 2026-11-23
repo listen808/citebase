@@ -45,6 +45,11 @@ var VectorSyncReindexFunc func(docID, spaceID int, docName, content, opType stri
 // 在 AI 模块初始化时由 app/server 注入；为 nil 时跳过（AI 未启用）。
 var WikiRecompileFunc func(docID, spaceID int)
 
+// WikiRemoveSourceFunc 源文档下架（入回收站 / 彻底删除）后触发 Wiki 级联清理：
+// 独占页删除、共享页摘除溯源、死链清理。
+// 与 WikiRecompileFunc 分开注入——两者语义不同（重编译 vs 摘除），共用一个变量会误触发。
+var WikiRemoveSourceFunc func(spaceID, docID int)
+
 type DocumentService struct {
 	docRepo        *workspacerepo.DocumentRepository
 	colRepo        *socialrepo.CollectionRepository
@@ -749,6 +754,17 @@ func (s *DocumentService) MoveToTrash(id int, userID int) error {
 		p.ActorID = int64(userID)
 	})
 
+	// 文档入回收站即从可检索语料里消失，基于它编译出的知识页不能再对查询可见：
+	// 独占页删除、共享页摘除该源、死链清理（治理规则见 internal/ai/wiki/cascade.go）。
+	if WikiRemoveSourceFunc != nil {
+		for _, d := range docsToTrash {
+			if d.Type != workspacemodel.DocumentTypePage {
+				continue
+			}
+			safego.Go("wikiRemoveSource", func() { WikiRemoveSourceFunc(d.SpaceID, d.ID) })
+		}
+	}
+
 	return nil
 }
 
@@ -939,6 +955,15 @@ func (s *DocumentService) PermanentDeleteDocument(id int, userID int) error {
 	for _, d := range docsToDelete {
 		_ = s.docLinkRepo.DeleteBySource(d.ID)
 		_ = s.docLinkRepo.DeleteByTarget(d.ID)
+	}
+
+	// 彻底删除后同一套 wiki 级联（trashIDs 覆盖目录下的全部后代，包括此前已软删的）。
+	if WikiRemoveSourceFunc != nil {
+		drainedSpaceID := spaceID
+		for _, docID := range trashIDs {
+			docID := docID
+			safego.Go("wikiRemoveSource", func() { WikiRemoveSourceFunc(drainedSpaceID, docID) })
+		}
 	}
 
 	// 彻底删除同样要清理全部后代的检索索引（旧实现只删顶层 id，残留私有正文可被搜到）

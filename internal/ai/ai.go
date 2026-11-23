@@ -431,6 +431,11 @@ func InitModule(cfg *AIConfig) {
 		workspacesvc.WikiRecompileFunc = func(docID, spaceID int) {
 			module.recompileWikiDoc(docID, spaceID, primary)
 		}
+		// 源文档下架级联：入回收站/彻底删除时摘除该文档贡献的知识（独占页删除、
+		// 共享页摘溯源、死链清理），否则删掉文档后知识页仍对查询可见。
+		workspacesvc.WikiRemoveSourceFunc = func(spaceID, docID int) {
+			module.removeWikiSource(spaceID, docID)
+		}
 		logx.Info("[AI] Wiki recompile callback registered (immutability cascade)")
 	}
 
@@ -691,6 +696,28 @@ func (m *Module) recompileWikiDoc(docID, spaceID int, p provider.Provider) {
 
 	logx.Infof("[WikiRecompile] doc %d space %d: created=%d updated=%d skipped=%d",
 		docID, spaceID, len(plan.Created), len(plan.Updated), plan.Skipped)
+}
+
+// removeWikiSource P1: 源文档下架后级联清理 wiki（独占页删除 / 共享页摘溯源 / 死链清理）。
+// 在独立 goroutine 中调用，失败只记日志 —— 文档删除是主流程，不能因此回滚。
+func (m *Module) removeWikiSource(spaceID, docID int) {
+	defer func() {
+		if r := recover(); r != nil {
+			logx.Warnf("[WikiCascade] panic for doc %d: %v", docID, r)
+		}
+	}()
+
+	compiler := wiki.NewCompiler(m.primaryProvider)
+	res, err := compiler.RemoveSource(spaceID, docID)
+	if err != nil {
+		logx.Warnf("[WikiCascade] remove source failed for doc %d space %d: %v", docID, spaceID, err)
+		return
+	}
+	if len(res.RemovedPages) == 0 && len(res.PrunedPages) == 0 && res.CleanedLinks == 0 {
+		return
+	}
+	logx.Infof("[WikiCascade] doc %d space %d: removed=%d pruned=%d links=%d",
+		docID, spaceID, len(res.RemovedPages), len(res.PrunedPages), res.CleanedLinks)
 }
 
 func (m *Module) Enabled() bool {

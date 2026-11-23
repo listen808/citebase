@@ -31,6 +31,58 @@
         <template #header>
           <div :style="aiSubSectionHeaderStyle">
             <div :style="aiSubCardNameRowStyle">
+              <span :style="aiSubSectionTitleStyle">{{ $t('aiSet2.wikiOpsTitle') }}</span>
+            </div>
+            <div :style="aiSubActionRowStyle">
+              <ApButton variant="secondary" size="small" :loading="indexLoading" @click="openIndex">
+                <ApIcon name="BookOpen" :size="AppleIconSize.control" /> {{ $t('aiSet2.wikiIndexBtn') }}
+              </ApButton>
+              <ApButton variant="secondary" size="small" @click="openSources">
+                <ApIcon name="Unlink" :size="AppleIconSize.control" /> {{ $t('aiSet2.wikiSourcesBtn') }}
+              </ApButton>
+              <ApButton variant="secondary" size="small" @click="openResearch">
+                <ApIcon name="Search" :size="AppleIconSize.control" /> {{ $t('aiSet2.wikiResearchBtn') }}
+              </ApButton>
+            </div>
+          </div>
+        </template>
+
+        <div :style="formStyle">
+          <ApFormItem :label="$t('aiSet2.wikiPurposeLabel')" :hint="$t('aiSet2.wikiPurposeHint')">
+            <div :style="formRowStyle">
+              <ApTextarea
+                v-model="purposeDraft"
+                :rows="3"
+                :aria-label="$t('aiSet2.wikiPurposeLabel')"
+                :placeholder="$t('aiSet2.wikiPurposePlaceholder')"
+                style="flex: 1"
+              />
+              <ApButton variant="primary" size="small" :loading="savingPurpose" @click="savePurpose">
+                {{ $t('aiSet2.save') }}
+              </ApButton>
+            </div>
+          </ApFormItem>
+          <ApFormItem :label="$t('aiSet2.wikiSchemaLabel')" :hint="$t('aiSet2.wikiSchemaHint')">
+            <div :style="formRowStyle">
+              <ApTextarea
+                v-model="schemaDraft"
+                :rows="3"
+                :aria-label="$t('aiSet2.wikiSchemaLabel')"
+                :placeholder="$t('aiSet2.wikiSchemaPlaceholder')"
+                style="flex: 1"
+              />
+              <ApButton variant="primary" size="small" :loading="savingSchema" @click="saveSchema">
+                {{ $t('aiSet2.save') }}
+              </ApButton>
+            </div>
+          </ApFormItem>
+        </div>
+      </ApCard>
+
+      <ApCard size="small">
+        <template #header>
+          <div :style="aiSubSectionHeaderStyle">
+            <div :style="aiSubCardNameRowStyle">
               <span :style="aiSubSectionTitleStyle">{{ tabTitle }}</span>
               <span :style="aiSubCountBadgeStyle">{{ tabRowCount }}</span>
             </div>
@@ -189,6 +241,64 @@
         <pre :style="contentStyle">{{ pageDetail.content }}</pre>
       </template>
     </ApModal>
+
+    <ApModal v-model="showIndex" :title="$t('aiSet2.wikiIndexTitle')" size="large">
+      <pre v-if="indexMarkdown" :style="contentStyle">{{ indexMarkdown }}</pre>
+      <div v-else :style="aiSubSectionMetaStyle">{{ $t('aiSet2.wikiIndexEmpty') }}</div>
+    </ApModal>
+
+    <ApModal v-model="showSources" :title="$t('aiSet2.wikiSourcesTitle')" size="medium">
+      <ApFormItem :label="$t('aiSet2.wikiSourceDocLabel')" :hint="$t('aiSet2.wikiSourceDocHint')">
+        <ApInput
+          v-model="sourceDocDraft"
+          type="number"
+          :aria-label="$t('aiSet2.wikiSourceDocLabel')"
+          placeholder="1287"
+        />
+      </ApFormItem>
+      <div v-if="sourceResult" :style="aiSubSectionMetaStyle">{{ sourceResult }}</div>
+      <template #footer>
+        <ApButton variant="ghost" size="small" @click="showSources = false">{{ $t('aiSet2.cancel') }}</ApButton>
+        <ApButton
+          variant="primary"
+          size="small"
+          :disabled="!sourceDocDraft"
+          :loading="savingSource"
+          @click="submitSourceRemoval"
+        >
+          {{ $t('aiSet2.wikiSourceRun') }}
+        </ApButton>
+      </template>
+    </ApModal>
+
+    <ApModal v-model="showResearch" :title="$t('aiSet2.wikiResearchTitle')" size="medium">
+      <ApFormItem :label="$t('aiSet2.wikiResearchKind')" required>
+        <ApSelect v-model="researchForm.kind" :options="researchKindOptions" :aria-label="$t('aiSet2.wikiResearchKind')" />
+      </ApFormItem>
+      <ApFormItem :label="$t('aiSet2.wikiResearchSlugs')" required>
+        <ApInput
+          v-model="researchForm.slugs"
+          :aria-label="$t('aiSet2.wikiResearchSlugs')"
+          placeholder="api-auth, deploy-topology"
+        />
+      </ApFormItem>
+      <ApFormItem :label="$t('aiSet2.wikiResearchDetail')">
+        <ApTextarea v-model="researchForm.detail" :rows="3" :aria-label="$t('aiSet2.wikiResearchDetail')" />
+      </ApFormItem>
+      <div v-if="researchResult" :style="aiSubSectionMetaStyle">{{ researchResult }}</div>
+      <template #footer>
+        <ApButton variant="ghost" size="small" @click="showResearch = false">{{ $t('aiSet2.cancel') }}</ApButton>
+        <ApButton
+          variant="primary"
+          size="small"
+          :disabled="!researchForm.slugs.trim()"
+          :loading="researching"
+          @click="submitResearch"
+        >
+          {{ $t('aiSet2.wikiResearchRun') }}
+        </ApButton>
+      </template>
+    </ApModal>
   </div>
 </template>
 
@@ -220,17 +330,24 @@ import {
   checkWikiPins,
   createWikiPin,
   exportWiki,
+  getWikiIndex,
   getWikiLinks,
   getWikiPage,
+  getWikiPurpose,
+  getWikiSchema,
   listWikiLint,
   listWikiPageHistory,
   listWikiPins,
   listWikiReviews,
   markWikiContradictions,
+  removeWikiSource,
   resolveWikiPin,
   resolveWikiReview,
   rollbackWikiPage,
+  runWikiDeepResearch,
   runWikiLint,
+  setWikiPurpose,
+  setWikiSchema,
   type WikiLintIssue,
   type WikiLink,
   type WikiPin,
@@ -268,6 +385,24 @@ const pageLoading = ref(false);
 const pageDetail = ref<Awaited<ReturnType<typeof getWikiPage>>['page'] | null>(null);
 const pageHistory = ref<Awaited<ReturnType<typeof listWikiPageHistory>>['history']>([]);
 const contradictionDraft = ref('');
+
+// 编译配置（Purpose / Schema）与运维动作（知识目录 / 源下架 / 深度研究）
+const purposeDraft = ref('');
+const schemaDraft = ref('');
+const savingPurpose = ref(false);
+const savingSchema = ref(false);
+const showIndex = ref(false);
+const indexLoading = ref(false);
+const indexMarkdown = ref('');
+const showSources = ref(false);
+const sourceDocDraft = ref('');
+const savingSource = ref(false);
+const sourceResult = ref('');
+const showResearch = ref(false);
+const researching = ref(false);
+const researchResult = ref('');
+const researchForm = ref({ kind: 'surprising', slugs: '', detail: '' });
+const researchKindOptions = ['surprising', 'bridge', 'gap'].map((k) => ({ label: k, value: k }));
 
 // 矛盾条目的唯一来源是页面正文里的标记块（后端确定性写入），
 // 这里只做解析展示，不与 Lint 表二次对账 —— 两处数据会各说各话。
@@ -404,7 +539,7 @@ async function loadAll() {
   if (!sid) return;
   loading.value = true;
   try {
-    const [p, r, l, k] = await Promise.all([
+    const [p, r, l, k, purpose, schema] = await Promise.all([
       listWikiPins(sid, ''),
       listWikiReviews(sid, ''),
       // 空串是有意的：后端 ListBySpace 把空 status 当"不过滤"，而 /ai/wiki/lint 的
@@ -412,11 +547,15 @@ async function loadAll() {
       // 取全量才能在本地真正实现"只看待处理 / 看全部"两种视图。
       listWikiLint(sid, ''),
       getWikiLinks(sid),
+      getWikiPurpose(sid).catch(() => null),
+      getWikiSchema(sid).catch(() => null),
     ]);
     pins.value = p?.pins ?? [];
     reviews.value = r?.reviews ?? [];
     issues.value = l?.issues ?? [];
     links.value = k?.links ?? [];
+    purposeDraft.value = purpose?.purpose ?? '';
+    schemaDraft.value = schema?.schema ?? '';
   } catch (e) {
     logger.error('Failed to load wiki governance:', e);
     ui.showToast(t('aiSet2.k220'), 'error');
@@ -519,6 +658,118 @@ async function rerunLint() {
     ui.showToast(t('aiSet2.k229'), 'error');
   } finally {
     linting.value = false;
+  }
+}
+
+async function savePurpose() {
+  const sid = spaceId.value;
+  if (!sid) return;
+  savingPurpose.value = true;
+  try {
+    const res = await setWikiPurpose(sid, purposeDraft.value);
+    purposeDraft.value = res?.purpose ?? purposeDraft.value;
+    ui.showToast(t('aiSet2.wikiPurposeSaved'), 'success');
+  } catch (e) {
+    logger.error('Failed to save wiki purpose:', e);
+    ui.showToast(t('aiSet2.wikiSaveFailed'), 'error');
+  } finally {
+    savingPurpose.value = false;
+  }
+}
+
+async function saveSchema() {
+  const sid = spaceId.value;
+  if (!sid) return;
+  savingSchema.value = true;
+  try {
+    const res = await setWikiSchema(sid, schemaDraft.value);
+    schemaDraft.value = res?.schema ?? schemaDraft.value;
+    ui.showToast(t('aiSet2.wikiSchemaSaved'), 'success');
+  } catch (e) {
+    logger.error('Failed to save wiki schema:', e);
+    ui.showToast(t('aiSet2.wikiSaveFailed'), 'error');
+  } finally {
+    savingSchema.value = false;
+  }
+}
+
+async function openIndex() {
+  const sid = spaceId.value;
+  if (!sid) return;
+  showIndex.value = true;
+  indexLoading.value = true;
+  indexMarkdown.value = '';
+  try {
+    const res = await getWikiIndex(sid);
+    indexMarkdown.value = res?.markdown ?? '';
+  } catch (e) {
+    logger.error('Failed to load wiki index:', e);
+    ui.showToast(t('aiSet2.k220'), 'error');
+  } finally {
+    indexLoading.value = false;
+  }
+}
+
+function openSources() {
+  sourceDocDraft.value = '';
+  sourceResult.value = '';
+  showSources.value = true;
+}
+
+async function submitSourceRemoval() {
+  const sid = spaceId.value;
+  const docID = Number(sourceDocDraft.value);
+  if (!sid || !docID) return;
+  savingSource.value = true;
+  try {
+    const res = await removeWikiSource(sid, docID);
+    const r = res?.result;
+    sourceResult.value = t('aiSet2.wikiSourceDone', {
+      p1: r?.removed_pages?.length ?? 0,
+      p2: r?.pruned_pages?.length ?? 0,
+      p3: r?.cleaned_links ?? 0,
+    });
+    await loadAll();
+  } catch (e) {
+    logger.error('Failed to remove wiki source:', e);
+    sourceResult.value = e instanceof Error && e.message ? e.message : t('aiSet2.k229');
+  } finally {
+    savingSource.value = false;
+  }
+}
+
+function openResearch() {
+  researchForm.value = { kind: 'surprising', slugs: '', detail: '' };
+  researchResult.value = '';
+  showResearch.value = true;
+}
+
+async function submitResearch() {
+  const sid = spaceId.value;
+  if (!sid) return;
+  const slugs = researchForm.value.slugs
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (slugs.length === 0) return;
+  researching.value = true;
+  try {
+    const res = await runWikiDeepResearch({
+      space_id: sid,
+      kind: researchForm.value.kind,
+      slugs,
+      detail: researchForm.value.detail,
+    });
+    const report = res?.report;
+    researchResult.value = report?.created
+      ? t('aiSet2.wikiResearchDone', { p1: report.page_slug, p2: report.review_id })
+      : t('aiSet2.wikiResearchNoResult');
+    await loadAll();
+  } catch (e) {
+    logger.error('Failed to run wiki deep research:', e);
+    researchResult.value = e instanceof Error && e.message ? e.message : t('aiSet2.k229');
+  } finally {
+    researching.value = false;
   }
 }
 

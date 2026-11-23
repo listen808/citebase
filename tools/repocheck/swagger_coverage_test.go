@@ -11,20 +11,20 @@ import (
 
 // 这台的射程：OpenAPI 文档覆盖率，**只升不降**的棘轮。
 //
-// 为什么不是"路径级 diff"：代码里 400 个不同端点，docs/swagger 只有 102 个 paths，
+// 为什么不是"路径级 diff"：代码里 400 个不同端点，docs/swagger 只有 130 个 paths，
 // 差距大到任何"必须全覆盖"的断言第一天就把门禁调红（而永远红的门禁比没有门禁更糟）。
 // 所以这里量的是可移动的那一根轴：**注解数量**。谁新写了一个 handler 而不注解，
 // 注册数涨而注解数不涨 → 覆盖率跌 → 下面第二条断言红。
 //
 // 判据按"每个 api 子包"分族，因为最大的一块缺口集中在 internal/api/ai
-// （注册 197 条只有 1 个 @Router），全站合计数会把这种局部塌方平均掉。
+// （注册 197 条只有 1 个 @Router —— 2026-11-23 已补齐 wiki 32 个端点），全站合计数会把这种局部塌方平均掉。
 var annotationBaseline = map[string]int{
 	// 键是 internal/api 下的子包名，值是"该族当前有多少条 @Router 注解"。
 	// 补注解时把数字抬上去；往下调必须写理由（默认拒绝）。
 	// 2026-10-07 实测 121/502：文档只覆盖了约四分之一的注册面，缺口的大头是 ai（197 条只有 1 条）
 	// 与 schema（37 条 0 条）—— 这两族是公开的欠账，不是一条已完成的规矩。
 	"admin":     32,
-	"ai":        8, // 2026-11-12: wiki 版本历史/回滚/矛盾标注/好答案回填 4 + OKF 导出 1 + 记忆待确认 2
+	"ai":        35, // 2026-11-23: wiki 全部 32 个端点补齐注解（原 8 条只覆盖历史/回滚/矛盾/回填/导出/记忆）
 	"auth":      15,
 	"collab":    0,
 	"common":    0,
@@ -106,7 +106,7 @@ func TestRouterAnnotationRatchet(t *testing.T) {
 	if totalRegs < 300 {
 		t.Fatalf("只数到 %d 条注册行，低于 300 的下限 —— 判据本身坏了（正则失配 / 目录挪动），此时任何覆盖率数字都不可信", totalRegs)
 	}
-	t.Logf("OpenAPI 注解覆盖：%d/%d 条注册有注解（docs/swagger 当前 102 个 paths）", totalAnnos, totalRegs)
+	t.Logf("OpenAPI 注解覆盖：%d/%d 条注册有注解（docs/swagger 当前 130 个 paths）", totalAnnos, totalRegs)
 }
 
 // TestSwaggerSpecPathsRatchet 是 spec 侧的棘轮：paths 条目数只许升。
@@ -117,7 +117,7 @@ func TestRouterAnnotationRatchet(t *testing.T) {
 // 过期检测改由 CI 真跑一次 `swag init` 再 `git diff --exit-code`（见 .github/workflows/ci.yml），
 // 那条判据是精确的：生成物与代码不一致就红。
 func TestSwaggerSpecPathsRatchet(t *testing.T) {
-	const baseline = 102 // 2026-10-07 实测；补注解并重生成后抬上去
+	const baseline = 130 // 2026-11-23 实测（wiki 全量注解后重新生成）；补注解并重生成后抬上去
 	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "swagger", "swagger.json"))
 	if err != nil {
 		t.Fatalf("读 docs/swagger/swagger.json: %v", err)

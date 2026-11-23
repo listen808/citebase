@@ -173,7 +173,7 @@ import ApIcon from '@/components/apple/ApIcon.vue';
 import { cv, AppleRadius, AppleSpace, AppleType, AppleLayout, AppleIconSize } from '@/utils/core/apple-tokens';
 import { chatContainerStyle, chatMainAreaStyle, chatMessagesContainerStyle, chatJumpLatestStyle } from '@/styles/ai/chat-styles';
 import { streamAsk, askAI } from '@/api/modules/ai/ai-chat';
-import { proposeWikiAnalysis } from '@/api/modules/ai/ai-wiki';
+import { proposeWikiAnalysis, searchWiki } from '@/api/modules/ai/ai-wiki';
 import { recallMemories, extractMemories } from '@/api/modules/ai/ai-memory';
 import { textToSQLApi } from '@/api/modules/ai/ai-data';
 import type { AIAskSource } from '@/types/ai';
@@ -664,9 +664,30 @@ async function executeByIntent(question: string, assistantMsgId: string, intent:
     assistantMsg.content = '> ' + t('aiChat.k69') + '\n\n';
     startStream(question, assistantMsg, buildHistory(assistantMsgId), assistantMsg.content, images);
   } else if (intent === 'wiki_query') {
-    // Wiki 知识库页面查询：优先检索已编译的 Wiki 页面
-    assistantMsg.content = '> ' + t('aiChat.k75') + '\n\n';
-    startStream(question, assistantMsg, buildHistory(assistantMsgId), assistantMsg.content, images);
+    // Wiki 知识库页面查询：先检索已编译的知识页，命中就把正文注入本轮上下文，
+    // 再走普通流式回答。原先只加一行提示语，模型完全看不到知识页，等于没接上。
+    streaming.value = true;
+    let prefix = '> ' + t('aiChat.k75') + '\n\n';
+    let enrichedQuestion = question;
+    const wikiSpaceId = selectedSpaceId.value;
+    if (wikiSpaceId) {
+      try {
+        const res = await searchWiki(wikiSpaceId, question, 3);
+        const wikiHits = res?.hits ?? [];
+        if (wikiHits.length > 0) {
+          prefix += `> ${t('aiChat.k75')}：${wikiHits.map((h) => '`' + h.slug + '`').join(' ')}\n\n`;
+          enrichedQuestion = [
+            '以下是从知识库编译出的知识页，回答时优先采用；每处引用在句末用 [slug] 标注出处。',
+            ...wikiHits.map((h, i) => `### [${i + 1}] ${h.title} (${h.slug})\n${h.content}`),
+            '',
+            `用户问题：${question}`,
+          ].join('\n');
+        }
+      } catch (e) {
+        logger.error('Failed to search wiki pages:', e);
+      }
+    }
+    startStream(enrichedQuestion, assistantMsg, buildHistory(assistantMsgId), prefix, images);
   } else {
     // P2-6: 个性化记忆由后端在 StreamAsk 中自动召回并注入 prompt，
     // 前端仅做召回调用以触发记忆统计/可观测，不再伪装成历史消息。
