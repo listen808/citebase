@@ -354,10 +354,12 @@ function onDrop(event: DragEvent) {
 
   // vue-flow 的 Node 是递归泛型，vue-tsc 在 Ref<Node[]>.push / 展开上会触发 TS2589（编译器限制，非逻辑错误）。
   // newNode 仍以 Node 声明，构造期形状受检；此处仅把数组接收方整体越过限制，不再像旧代码那样撒遍 as any。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 同上：这是 TS2589 的唯一落点，换成窄类型会重新实例化递归泛型
   (nodes.value as Array<any>).push(newNode);
   draggedType.value = null;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- vue-flow 的 Node/Edge 都是递归泛型，方法调用与赋值 RHS 必须落在 any 上，否则 vue-tsc 实例化泛型即 TS2589（见 addNode 上方注释） */
 function deleteNode(nodeId: string) {
   removeNodes([nodeId]);
   // 同 push 的 TS2589：vue-flow 的 Node/Edge 都是递归泛型，方法调用要落在 Array<any> 上、
@@ -381,6 +383,7 @@ function handleSave() {
   }));
   emit('save', wfNodes, wfEdges);
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function truncate(s: string, len: number) {
   return s.length > len ? s.slice(0, len) + '...' : s;

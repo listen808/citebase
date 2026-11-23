@@ -443,7 +443,6 @@ import {
   type EvalABResult,
   type EvalAgentVariant,
   type EvalDataset,
-  type EvalLayerScores,
   type EvalQuestion,
   type EvalResult,
   type EvalSuiteRun,

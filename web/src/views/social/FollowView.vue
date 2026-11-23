@@ -95,14 +95,12 @@ import ApEntityCard from '@/components/apple/ApEntityCard.vue';
 import ApButton from '@/components/apple/ApButton.vue';
 import FilterBar from '@/components/layout/FilterBar.vue';
 import { useFollowStore } from '@/stores/workspace/follow';
-import { useAuthStore } from '@/stores/auth/auth';
 import { useUIStore } from '@/stores/app/ui';
 import { logger } from '@/utils/logger';
 
 const router = useRouter();
 const ui = useUIStore();
 const followStore = useFollowStore();
-const auth = useAuthStore();
 
 const showUnfollowModal = shallowRef(false);
 const unfollowTarget = ref<FollowUser | null>(null);
@@ -163,10 +161,6 @@ function handleClick(item: FollowUser) {
 async function handleUnfollow(item: FollowUser) {
   unfollowTarget.value = item;
   showUnfollowModal.value = true;
-}
-
-function isSelf(item: FollowUser): boolean {
-  return item.target_user?.user_id === auth.user?.id;
 }
 
 async function confirmUnfollow() {

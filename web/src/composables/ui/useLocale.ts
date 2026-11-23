@@ -1,6 +1,5 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import i18n from '@/i18n';
 import { applySiteMetaDescription } from '@/utils/core/site-brand';
 
 const LOCALE_KEY = 'app-locale';

@@ -39,8 +39,8 @@
           </div>
         </div>
       </template>
-
       <template v-else>
+        <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 末尾走 sanitizeMarkdownHtml 白名单过滤 -->
         <div ref="textContentRef" class="chat-md-content" :style="textStyle" @click="handleTextClick" @mouseover="handleTextMouseOver" @mouseout="handleTextMouseOut" v-html="renderMarkdown(message.content)" />
       </template>
 
@@ -197,7 +197,7 @@ const emit = defineEmits<{
   'show-sources': [sources: ChatSource[]];
   'source-click': [sources: ChatSource[], citationIndex: number];
   'clarify-select': [option: string];
-  'stream-action': [action: { action: string; payload: Record<string, any>; compId: string }];
+  'stream-action': [action: { action: string; payload: Record<string, unknown>; compId: string }];
   'propose-save': [message: ChatMessage];
 }>();
 
@@ -218,7 +218,7 @@ const currentLoadingStep = computed(() => {
   return '';
 });
 
-function handleStreamAction(action: { action: string; payload: Record<string, any>; compId: string }) {
+function handleStreamAction(action: { action: string; payload: Record<string, unknown>; compId: string }) {
   emit('stream-action', action);
 }
 

@@ -203,7 +203,7 @@ const stripComments = (t) => t
 function surfaceKeysNear(lines, i) {
   const window_ = lines.slice(Math.max(0, i - 20), i + 20);
   const found = new Set();
-  window_.forEach((l, k) => {
+  window_.forEach((l) => {
     // 注释行（REM /// // * 以及 CSS 注释里的历史说明）不算：
     // 那段"原先玻璃分支写 cv('glass-bg')"就在 ApModal 里，按行取会把它当成当前表面档
     const t = l.trim();
@@ -219,7 +219,6 @@ const files = walk(SRC);
 const errors = [];
 const rows = [];
 let blurTotal = 0;
-let shellTotal = 0;
 const glassConsumers = [];
 /** 豁免必须被真的用上：没人用的豁免会烂在那儿，下一任读不出它防的是哪块代码 */
 const usedExemptions = new Set();
@@ -276,7 +275,6 @@ for (const abs of files) {
     if (/['"]none['"]/.test(value)) { rows.push(`${rel}:${i + 1}  显式不铺玻璃`); return; }
 
     // ---- 这处壳面交代了吗 ----
-    shellTotal++;
     const near = lines.slice(Math.max(0, i - 20), i + 20).join('\n');
     const surf = surfaceKeysNear(lines, i);
     const rest = surf.filter((k) => REST_KEYS.has(k));

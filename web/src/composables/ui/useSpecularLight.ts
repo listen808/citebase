@@ -46,7 +46,6 @@ const TILT_RANGE_DEG = 30;
 const SCROLL_QUIET_MS = 120;
 
 let installed = false;
-let raf = 0;
 /** 与令牌默认值（18%/0%）同源的起点：第一次动效从这里滑出去，而不是瞬移 */
 let curX = 18;
 let curY = 0;
@@ -77,7 +76,6 @@ function writeTokens(): void {
 }
 
 function tick(): void {
-  raf = 0;
   // 页面隐藏或动效被关掉就停表：下一次 pointermove 会重新拉起
   if (document.hidden || currentMotionMode() !== 'full' || motionReduced()) {
     running = false;
@@ -95,7 +93,7 @@ function tick(): void {
   curX += dx * EASE;
   curY += dy * EASE;
   writeTokens();
-  raf = requestAnimationFrame(tick);
+  requestAnimationFrame(tick);
 }
 
 function schedule(x: number, y: number): void {
@@ -105,7 +103,7 @@ function schedule(x: number, y: number): void {
   targetY = y;
   if (!running) {
     running = true;
-    raf = requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
 }
 

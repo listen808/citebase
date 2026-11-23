@@ -57,7 +57,7 @@ import { useEscapeClose } from '@/composables/ui/useEscapeClose';
 import { useMarkdownInsert } from '@/composables/editor/useMarkdownInsert';
 import { useAIWrite, type EditorAIAction } from '@/composables/ai/useAIWrite';
 import { CONTENT_SLASH_COMMANDS, AI_SLASH_COMMANDS, SLASH_TRIGGER_REGEX } from '@/constants/editor-slash';
-import { AppleSpace, AppleType, AppleZIndex, cv, menuSurfaceStyle } from '@/utils/core/apple-tokens';
+import { AppleSpace, AppleZIndex, cv, menuSurfaceStyle } from '@/utils/core/apple-tokens';
 import { resultCountStyle } from '@/styles/component/spotlight-search-styles';
 import { monacoThemeForUi } from '@/styles/theme/highlight-tokens';
 

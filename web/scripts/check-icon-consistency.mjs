@@ -65,7 +65,6 @@ const isIconTag = (tag, lucide) => ICON_COMPONENT_TAGS.has(tag) || lucide.has(ta
 /** 行号由匹配起点前的换行数算出（违例报告要能直接跳过去） */
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 const SIZE_ATTR = /(?:^|[\s:])size="([^"]*)"/;
-const isIconElement = (m, lucide) => isIconTag(m[1], lucide);
 
 /* ---------- emoji：图标位的判据 ---------- */
 // emoji 没有尺寸档、没有描边、不随主题变，把它当 UI 图标就等于引入第三套图标族

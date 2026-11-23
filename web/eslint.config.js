@@ -101,4 +101,20 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // web/scripts 下是门禁与生成脚本：stdout 就是它们的输出通道（报告、进度、自检结果），
+    // 用 console 属于正常用法。src 与组件里仍然禁 console，走 logger。
+    files: ['scripts/**/*.{mjs,js}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    // 测试里用 defineComponent 就地搭最小宿主组件是探针的常规写法（要复现"装了会不会触发"），
+    // 不是"一个文件产出多个组件"，vue/one-component-per-file 在这类文件上不成立。
+    files: ['**/*.test.ts', '**/*.spec.ts'],
+    rules: {
+      'vue/one-component-per-file': 'off',
+    },
+  },
 )

@@ -37,7 +37,7 @@ for (const root of [viewsDir, compDir]) {
     const src = fs.readFileSync(file, 'utf8');
     if (!CJK.test(src)) continue;
     stats.files++;
-    const [tmpl, tStart, tEnd] = templateOf(src);
+    const [tmpl, , tEnd] = templateOf(src);
     let n = 0;
 
     // 模板里的可见文本节点：>中文< 之间
@@ -50,7 +50,7 @@ for (const root of [viewsDir, compDir]) {
       stats.tmplAttr++; stats.uniq.add(m[1]); n++;
     }
     // 模板里直接写在插值外的裸中文（如 {{ }} 内、或 :ok-text="'删除'"）—— 计数进 other
-    for (const m of tmpl.matchAll(/{{[^}]*[一-鿿][^}]*}}/g)) { stats.other++; n++; }
+    for (const _m of tmpl.matchAll(/{{[^}]*[一-鿿][^}]*}}/g)) { stats.other++; n++; }
     // 脚本段里的字符串字面量
     const script = src.slice(tEnd < 0 ? 0 : tEnd);
     for (const m of script.matchAll(/(['"`])(?:\\.|(?!\1)[^\\])*?[一-鿿](?:\\.|(?!\1)[^\\])*?\1/g)) {

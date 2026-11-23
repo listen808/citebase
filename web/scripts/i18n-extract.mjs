@@ -16,7 +16,6 @@
 // 以及把 pending 里的键补进 locales/{zh-CN,en-US}.ts —— 没补键之前 closure 门禁会红，这是故意的。
 
 import fs from 'node:fs';
-import path from 'node:path';
 
 const argv = process.argv.slice(2);
 const nsArg = argv.find((a) => a.startsWith('--ns='));

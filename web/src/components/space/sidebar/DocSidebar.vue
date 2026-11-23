@@ -160,7 +160,6 @@ import { useContextMenu } from '@/composables/ui/useContextMenu';
 import { useRecentDocs } from '@/composables/ui/useRecentDocs';
 import { useCollectionStore } from '@/stores/workspace/collection';
 import { useSpaceStore } from '@/stores/workspace/space';
-import { formatTime, formatTimeAgo } from '@/utils/format/format-time';
 import { formatRelativeTime as formatRelativeTimeShared } from '@/utils/format/format-time';
 import type { Document, Space } from '@/types/models';
 import { sidebarStyle, getSpaceIconStyle, headerStyle, headerLeftStyle, headerTitleWrapStyle, titleStyle, docCountStyle, actionsStyle, searchStyle, bodyStyle, segmentedWrapStyle, treeSkeletonStyle, treeSkeletonItemStyle, skeletonLineStyle, flatListStyle, flatItemStyle, flatNameStyle, flatSubStyle, collapsedBodyStyle, collapsedHeaderStyle, collapsedHeaderBarStyle } from '@/styles/layout/doc-sidebar-styles';

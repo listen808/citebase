@@ -12,8 +12,10 @@
     <FileText v-if="result.document_id" :size="18" :style="itemIconStyle" />
     <Folder v-else-if="result.space_id" :size="18" :style="itemIconStyle" />
     <div :style="itemContentStyle">
+      <!-- eslint-disable-next-line vue/no-v-html -- highlightText 先 escapeHtml 再插 <mark>，不含原始 HTML -->
       <span :style="itemTitleStyle" :title="result.name" v-html="highlightText(result.name, kw)"></span>
       <span v-if="result.space_name" :style="itemMetaStyle">{{ result.space_name }}</span>
+      <!-- eslint-disable-next-line vue/no-v-html -- snippet 由 getHighlightSnippet 经 sanitizeAndHighlightHighlight 转义加亮 -->
       <span v-if="snippet" :style="itemSnippetStyle" v-html="snippet"></span>
     </div>
     <span v-if="result.document_id" :style="itemTypeStyle">{{ $t('apUi1.k50') }}</span>

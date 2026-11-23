@@ -41,7 +41,6 @@ const { t } = useI18n();
 import { useI18n } from 'vue-i18n';
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import ApPageContainer from '@/components/apple/ApPageContainer.vue';
-import ApIcon from '@/components/apple/ApIcon.vue';
 import ApEmpty from '@/components/apple/ApEmpty.vue';
 import { cv, resolvedColor, AppleLayout, AppleSpace, AppleType, AppleRadius, AppleAnimation } from '@/utils/core/apple-tokens';
 import { useChartLifecycle } from '@/composables/ui/useChartLifecycle';

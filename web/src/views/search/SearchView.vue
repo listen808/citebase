@@ -41,6 +41,7 @@
       </div>
       <ApError v-else-if="aiError" :message="aiError" show-retry @retry="runAIMode(keyword)" />
       <div v-else-if="aiAnswer" :style="aiAnswerStyle">
+        <!-- eslint-disable-next-line vue/no-v-html -- renderedAiHtml 由 renderAIMarkdownToHtml 经 sanitizeMarkdownHtml 过滤 -->
         <div :style="aiAnswerContentStyle" v-html="renderedAiHtml" />
       </div>
       <ApEmpty v-else :title="$t('search.k80')" :description="$t('vSearchUi.k4')" />
@@ -100,6 +101,7 @@
                 </div>
 
                 <!-- 标题：独立一行，更醒目 -->
+                <!-- eslint-disable-next-line vue/no-v-html -- highlightedName 先 escapeHtml 再插 <mark>，不含原始 HTML -->
                 <div :style="resultTitleStyle" v-html="highlightedName(r.name)" />
 
                 <!-- 片段展示：卡片样式 + 上下文 -->
@@ -117,6 +119,7 @@
                       </div>
                       <div :style="fragmentContentStyle">
                         <span v-if="fi > 0" :style="ellipsisStyle">...</span>
+                        <!-- eslint-disable-next-line vue/no-v-html -- highlightedFragment 走 sanitizeFragmentHTML，只放行 <mark> -->
                         <span v-html="highlightedFragment(frag.html)" />
                         <span v-if="fi < getFragments(r).length - 1" :style="ellipsisStyle">...</span>
                       </div>
@@ -132,11 +135,8 @@
                     </ApButton>
                   </div>
                 </template>
-                <div
-                  v-else-if="r.path"
-                  :style="resultPathMetaStyle"
-                  v-html="highlightedName(r.path)"
-                />
+                <!-- eslint-disable-next-line vue/no-v-html -- highlightedName 先 escapeHtml 再插 <mark>，不含原始 HTML -->
+                <div v-else-if="r.path" :style="resultPathMetaStyle" v-html="highlightedName(r.path)" />
 
                 <!-- 快速操作按钮：hover 时显示 -->
                 <div :style="resultQuickActionsStyle(activeResultIndex === idx)">
@@ -214,7 +214,6 @@ import { storageGet, storageSet, storageRemove, StorageKeys } from '@/utils/core
 import SearchHeader from '@/components/search/SearchHeader.vue';
 import { useSearchKeyboard } from '@/composables/ui/useSearchKeyboard';
 import { useAIStore } from '@/stores/ai/ai';
-import { formatDate, formatTimeAgo } from '@/utils/format/format-time';
 import { formatRelativeTime as formatRelativeTimeDefault } from '@/utils/format/format-time';
 
 const router = useRouter();

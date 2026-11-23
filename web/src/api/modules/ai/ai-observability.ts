@@ -10,7 +10,7 @@ export interface Span {
   start_time: string;
   end_time?: string;
   duration_ms: number;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   events?: SpanEvent[];
   children?: Span[];
   error_msg?: string;
@@ -19,7 +19,7 @@ export interface Span {
 export interface SpanEvent {
   name: string;
   time: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }
 
 export interface MetricValue {

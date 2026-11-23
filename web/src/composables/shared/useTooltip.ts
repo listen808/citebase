@@ -1,4 +1,4 @@
-import { computed, nextTick, onScopeDispose, shallowRef, useId, type Ref } from 'vue';
+import { nextTick, onScopeDispose, shallowRef, useId, type Ref } from 'vue';
 import { calcPosition } from '@/utils/core/position';
 import {
   AppleLineHeight, AppleRadius, AppleSpace, AppleType, AppleZIndex, cv,

@@ -195,7 +195,6 @@ import ApMorphIcon from '@/components/apple/ApMorphIcon.vue';
 import { AppleFont, AppleIconSize, AppleLineHeight, AppleRadius, AppleSpace, AppleType, cv, menuSurfaceStyle, primarySurfaceStyle } from '@/utils/core/apple-tokens';
 import { loadingStyle } from '@/styles/layout/page-styles';
 import { readingAreaStyle } from '@/styles/component/doc-styles';
-import { logger } from '@/utils/logger';
 import { copyText } from '@/utils/clipboard';
 import { formatTime } from '@/utils/format/format-time';
 import { countWords, estimateReadingTime } from '@/utils/format/reading-time';

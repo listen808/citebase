@@ -185,13 +185,12 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Home, Users, Zap, Search, MoreVertical, UserCircle, LogOut, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next';
-import { AppleEasing, AppleFont, AppleFontWeight, AppleLayout, AppleLineHeight, AppleRadius, AppleSpace, AppleTransition, AppleType, cv, durVar, menuSurfaceStyle } from '@/utils/core/apple-tokens';
+import { Home, Users, Zap, Search, MoreVertical, UserCircle, LogOut, ChevronDown } from 'lucide-vue-next';
+import { AppleFont, AppleFontWeight, AppleLayout, AppleLineHeight, AppleRadius, AppleSpace, AppleTransition, AppleType, cv, menuSurfaceStyle } from '@/utils/core/apple-tokens';
 import { useAuthStore } from '@/stores/auth/auth';
 import { keyboardClick } from '@/composables/ui/useKeyboardClick';
 import { useClickOutsideClose } from '@/composables/ui/useClickOutsideClose';
 import { useAIStore } from '@/stores/ai/ai';
-import { useUIStore } from '@/stores/app/ui';
 import { useCollectionStore } from '@/stores/workspace/collection';
 import { listStyle, scrollSingleAxis } from '@/styles/layout/page-styles';
 import { getRoleName, SEARCH_SHORTCUT_HINT } from '@/utils/core/constants';
@@ -211,7 +210,6 @@ const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 const aiStore = useAIStore();
-const uiStore = useUIStore();
 const collectionStore = useCollectionStore();
 
 const showMenu = shallowRef(false);

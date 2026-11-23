@@ -15,7 +15,6 @@
 //   node scripts/i18n-batch.mjs --ns=docUi --glossary-only <files>   # 只报哪些串没词典
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 
 const argv = process.argv.slice(2);
 const nsArg = argv.find((a) => a.startsWith('--ns='));

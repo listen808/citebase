@@ -201,6 +201,7 @@
         <ApModal v-model="showTemplateModal" :title="$t('adminSys.k110')" size="medium" density="compact">
           <div :style="templatePreviewStyle">
             <h3 :style="templateTitleStyle">{{ $t('adminSys.k93', { app: siteBrandName }) }}</h3>
+            <!-- eslint-disable-next-line vue/no-v-html -- sanitizedEmailTemplateHtml 已在 computed 里走 DOMPurify.sanitize -->
             <div :style="templateBodyStyle" v-html="sanitizedEmailTemplateHtml" />
           </div>
           <template #footer>

@@ -68,7 +68,7 @@ import ApDrawer from '@/components/apple/ApDrawer.vue';
 import ApFooter from '@/components/apple/ApFooter.vue';
 import ApSpotlightSearch from '@/components/apple/ApSpotlightSearch.vue';
 import ApKeyboardShortcuts from '@/components/apple/ApKeyboardShortcuts.vue';
-import { cv, AppleEasing, AppleFont, AppleLayout, AppleZIndex, durVar } from '@/utils/core/apple-tokens';
+import { cv, AppleFont, AppleLayout, AppleZIndex } from '@/utils/core/apple-tokens';
 import { useMobile } from '@/composables/ui/useMobile';
 import { useUIStore } from '@/stores/app/ui';
 

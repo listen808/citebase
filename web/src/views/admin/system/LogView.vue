@@ -206,7 +206,6 @@ const { t } = useI18n();
 import { useI18n } from 'vue-i18n';
 import { ref, shallowRef, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import ApIcon from '@/components/apple/ApIcon.vue';
 import { cv, AppleLayout, AppleType, AppleRadius, AppleFont, AppleFontWeight, AppleSpace } from '@/utils/core/apple-tokens';
 import { loadingStyle, crudStatsRowStyle, timelineLinkStyle, timeStyle, metaItemStyle, labelStyle, filterGroupStyle, dateRangeStyle, dateInputStyle, filterButtonsStyle, filterSelectStyle, logCardDividerStyle, criticalBadgeStyle, logPathStyle, timelineDocNameStyle } from '@/styles/layout/page-styles';
 import { formatActionName, getActionStatus, getActionColor, isCriticalAction } from '@/utils/activity';

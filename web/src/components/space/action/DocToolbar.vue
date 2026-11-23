@@ -187,14 +187,31 @@ const showDeleteConfirm = shallowRef(false);
 const moreOpen = shallowRef(false);
 const showExportModal = shallowRef(false);
 
-function closeAndEmit(event: string) {
+/** 工具栏动作名全集：与 defineEmits 一一对应，模板里只允许传这些名字 */
+type ToolbarEvent =
+  | 'share'
+  | 'history'
+  | 'aiSummary'
+  | 'images'
+  | 'attachments'
+  | 'fullscreen'
+  | 'print'
+  | 'exportPdf'
+  | 'exportWord'
+  | 'exportHtml'
+  | 'exportMd';
+
+/** defineEmits 生成的是重载签名，动态事件名过不了重载；这里收窄成单签名再转发，名字仍受 ToolbarEvent 约束 */
+const emitEvent = emit as (event: ToolbarEvent) => void;
+
+function closeAndEmit(event: ToolbarEvent) {
   moreOpen.value = false;
-  emit(event as any);
+  emitEvent(event);
 }
 
-function doExport(event: string) {
+function doExport(event: ToolbarEvent) {
   showExportModal.value = false;
-  emit(event as any);
+  emitEvent(event);
 }
 
 const toolbarStyle = {
