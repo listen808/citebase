@@ -23,7 +23,7 @@
     "gen:server-messages": "node scripts/gen-server-messages.mjs",
     "check:icons": "node scripts/check-icon-consistency.mjs",
     "check:icons:selftest": "node scripts/check-icon-consistency.mjs --selftest",
-    "check:design": "node scripts/check-design-doctrine.mjs",
+    "check:design": "node ../scripts/check-design.mjs .",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:glass": "node scripts/check-glass-layers.mjs",
     "check:glass:runtime": "node scripts/check-glass-runtime.mjs",

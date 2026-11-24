@@ -946,7 +946,7 @@ defineExpose({ headings });
   margin: 0 0 var(--apple-space-16px);
   border-left: 3px solid;
 }
-.md-preview :deep(.callout-title) { font-size: 12px; font-weight: 600; letter-spacing: 0; line-height: 1.4; flex-shrink: 0; margin-bottom: 2px; }
+.md-preview :deep(.callout-title) { font-size: 12px; /* design-allow: 富文本预览按宿主正文档位缩小，随 .md-preview 的 AppleType 基准走 */ font-weight: 600; letter-spacing: 0; line-height: 1.4; flex-shrink: 0; margin-bottom: 2px; }
 .md-preview :deep(.callout-note .callout-title) { color: var(--apple-blue); }
 .md-preview :deep(.callout-warning .callout-title) { color: var(--apple-orange); }
 .md-preview :deep(.callout-tip .callout-title) { color: var(--apple-green); }
